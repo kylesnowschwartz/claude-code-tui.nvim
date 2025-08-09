@@ -4,6 +4,7 @@
 ---@brief ]]
 
 local ContentRenderer = require("cc-tui.ui.content_renderer")
+local Keymaps = require("cc-tui.keymaps")
 local NuiLine = require("nui.line")
 local NuiTree = require("nui.tree")
 local log = require("cc-tui.util.log")
@@ -273,6 +274,13 @@ function M.setup_keybindings(tree, bufnr, config)
             vim.notify("No content windows to close", vim.log.levels.INFO)
         end
     end, "Close all content windows")
+
+    -- Show help menu
+    if config.keymaps.help then
+        map(config.keymaps.help, function()
+            Keymaps.show_help("tree")
+        end, "Show help menu")
+    end
 
     log.debug("ui.tree", "Keybindings configured")
 end

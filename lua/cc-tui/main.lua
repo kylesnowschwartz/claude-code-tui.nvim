@@ -180,7 +180,7 @@ function M.enable(scope)
     -- Setup tree keybindings using Tree module (integrates with hybrid content rendering)
     local tree_config = {
         keymaps = {
-            toggle = { "<Space>", "<CR>" },
+            toggle = { "<Tab>", "<CR>" },
             close = { "q", "<Esc>" },
             expand_all = "E",
             collapse_all = "C",
@@ -190,6 +190,7 @@ function M.enable(scope)
             close_content = "x",
             close_all_content = "X",
             search = "/",
+            help = "?",
         },
         icons = {
             expanded = "▼",

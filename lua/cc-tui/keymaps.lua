@@ -138,12 +138,12 @@ function M.get_config()
 end
 
 ---Create help text for keybindings
----@param type "global"|"tree" Type of keymaps to show
+---@param keymap_type "global"|"tree" Type of keymaps to show
 ---@return string[] lines Help text lines
-function M.get_help_text(type)
+function M.get_help_text(keymap_type)
     vim.validate({
-        type = {
-            type,
+        keymap_type = {
+            keymap_type,
             function(v)
                 return v == "global" or v == "tree"
             end,
@@ -152,9 +152,9 @@ function M.get_help_text(type)
     })
 
     local lines = {}
-    local keymaps = type == "global" and config.global or config.tree
+    local keymaps = keymap_type == "global" and config.global or config.tree
 
-    table.insert(lines, string.format("=== CC-TUI %s Keybindings ===", type:upper()))
+    table.insert(lines, string.format("=== CC-TUI %s Keybindings ===", keymap_type:upper()))
     table.insert(lines, "")
 
     -- Format keymaps for display
@@ -189,14 +189,14 @@ function M.get_help_text(type)
 end
 
 ---Show help window for keybindings
----@param type? "global"|"tree" Type of keymaps to show (default: "tree")
+---@param keymap_type? "global"|"tree" Type of keymaps to show (default: "tree")
 ---@return nil
-function M.show_help(type)
-    type = type or "tree"
+function M.show_help(keymap_type)
+    keymap_type = keymap_type or "tree"
 
     vim.validate({
-        type = {
-            type,
+        keymap_type = {
+            keymap_type,
             function(v)
                 return v == "global" or v == "tree"
             end,
@@ -204,7 +204,7 @@ function M.show_help(type)
         },
     })
 
-    local lines = M.get_help_text(type)
+    local lines = M.get_help_text(keymap_type)
 
     -- Create floating window for help
     local width = 50
@@ -236,7 +236,7 @@ function M.show_help(type)
         vim.api.nvim_win_close(win, true)
     end, { buffer = buf })
 
-    log.debug("keymaps", string.format("Help window shown for %s keymaps", type))
+    log.debug("keymaps", string.format("Help window shown for %s keymaps", keymap_type))
 end
 
 ---Clear all CC-TUI keymaps
