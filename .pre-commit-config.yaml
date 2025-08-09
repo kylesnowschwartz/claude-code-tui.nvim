@@ -1,0 +1,34 @@
+# Pre-commit configuration for cc-tui.nvim
+repos:
+  # Core file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-yaml
+      - id: check-json
+      - id: detect-private-key
+
+  # Lua formatting with StyLua (matches existing stylua.toml config)
+  - repo: https://github.com/JohnnyMorganz/StyLua
+    rev: v2.1.0
+    hooks:
+      - id: stylua
+        args: [--config-path=stylua.toml]
+        exclude: ^deps/
+
+  # Lua linting with luacheck (matches Makefile config)
+  - repo: local
+    hooks:
+      - id: luacheck
+        name: luacheck
+        entry: luacheck
+        language: system
+        files: \.lua$
+        args: [plugin/, lua/]
+        exclude: ^deps/
