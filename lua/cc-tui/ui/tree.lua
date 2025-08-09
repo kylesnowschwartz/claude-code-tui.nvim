@@ -421,7 +421,8 @@ function M.toggle_result_node(node, tree)
             result_data.id,
             tool_name,
             result_data.content or "",
-            vim.api.nvim_get_current_win()
+            vim.api.nvim_get_current_win(),
+            result_data.structured_content
         )
 
         if content_window then

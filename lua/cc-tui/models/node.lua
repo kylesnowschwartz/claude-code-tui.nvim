@@ -44,6 +44,7 @@ M.NodeType = {
 ---@field tool_use_id string Reference to tool use
 ---@field content any Result content
 ---@field is_error boolean Whether result is an error
+---@field structured_content? table Original Claude Code JSON structure for sophisticated classification
 
 ---Create a session node
 ---@param session_id string Session identifier
@@ -169,12 +170,14 @@ end
 ---@param content any Result content
 ---@param is_error? boolean Whether result is an error
 ---@param preview_text? string Custom preview text for the result
+---@param structured_content? table Original Claude Code JSON structure for sophisticated classification
 ---@return CcTui.ResultNode node
-function M.create_result_node(tool_use_id, content, is_error, preview_text)
+function M.create_result_node(tool_use_id, content, is_error, preview_text, structured_content)
     vim.validate({
         tool_use_id = { tool_use_id, "string" },
         is_error = { is_error, "boolean", true },
         preview_text = { preview_text, "string", true },
+        structured_content = { structured_content, "table", true },
     })
 
     local text = preview_text
@@ -207,6 +210,7 @@ function M.create_result_node(tool_use_id, content, is_error, preview_text)
         tool_use_id = tool_use_id,
         content = content,
         is_error = is_error or false,
+        structured_content = structured_content,
     }
 end
 

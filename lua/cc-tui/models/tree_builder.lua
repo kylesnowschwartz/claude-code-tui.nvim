@@ -213,9 +213,9 @@ end
 ---@param content table Tool result content (Claude Code structured data)
 ---@param create_text_node function Function to create unique text nodes
 ---@param tool_name? string Name of the tool that generated this result
----@param stream_context? table Optional Claude Code stream context for deterministic classification
+---@param _stream_context? table Optional Claude Code stream context for deterministic classification (unused)
 ---@return CcTui.ResultNode? node Result node or nil
-function M.create_result_node_from_content(tool_use_id, content, create_text_node, tool_name, stream_context)
+function M.create_result_node_from_content(tool_use_id, content, create_text_node, tool_name, _stream_context)
     vim.validate({
         tool_use_id = { tool_use_id, "string" },
         content = { content, "table" },
@@ -242,7 +242,7 @@ function M.create_result_node_from_content(tool_use_id, content, create_text_nod
     end
 
     -- Create result node with tool-aware formatting
-    local node = M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name)
+    local node = M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name, content)
 
     -- Add formatted content as children based on tool type and content length
     -- Enhanced with Claude Code stream context for deterministic classification
@@ -258,8 +258,9 @@ end
 ---@param result_text string Result content text
 ---@param is_error boolean Whether this is an error result
 ---@param tool_name? string Name of the tool
+---@param structured_content? table Original Claude Code JSON structure
 ---@return CcTui.ResultNode node Result node
-function M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name)
+function M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name, structured_content)
     local preview_text = "Result" -- luacheck: ignore 311
 
     if is_error then
@@ -283,7 +284,7 @@ function M.create_tool_aware_result_node(tool_use_id, result_text, is_error, too
         end
     end
 
-    return Node.create_result_node(tool_use_id, result_text, is_error, preview_text)
+    return Node.create_result_node(tool_use_id, result_text, is_error, preview_text, structured_content)
 end
 
 ---Add formatted children to result node based on content type

@@ -76,6 +76,37 @@ function M.is_json_content(content)
     return ContentClassifier.is_json_content(content)
 end
 
+---Map sophisticated ContentClassifier result to legacy ContentType enum
+---@param classification CcTui.ClassificationResult Result from ContentClassifier.classify_from_structured_data()
+---@return CcTui.ContentDisplayType type Legacy content type
+---@return table metadata Legacy metadata structure
+function M.map_sophisticated_classification(classification)
+    vim.validate({
+        classification = { classification, "table" },
+    })
+
+    local ContentClassifier = require("cc-tui.utils.content_classifier")
+    local legacy_metadata = classification.metadata or {}
+
+    -- Map sophisticated types to legacy enum
+    if classification.type == ContentClassifier.ContentType.TOOL_INPUT then
+        return M.ContentType.JSON, { api_source = "tool_input" }
+    elseif classification.type == ContentClassifier.ContentType.JSON_API_RESPONSE then
+        return M.ContentType.JSON, { api_source = legacy_metadata.tool_name or "api" }
+    elseif classification.type == ContentClassifier.ContentType.ERROR_OBJECT then
+        return M.ContentType.ERROR, { error_type = "structured_error" }
+    elseif classification.type == ContentClassifier.ContentType.FILE_CONTENT then
+        return M.ContentType.FILE_CONTENT, { file_type = legacy_metadata.file_extension or "text" }
+    elseif classification.type == ContentClassifier.ContentType.COMMAND_OUTPUT then
+        return M.ContentType.COMMAND_OUTPUT, { shell_type = "bash" }
+    elseif classification.type == ContentClassifier.ContentType.ERROR_CONTENT then
+        return M.ContentType.ERROR, { error_type = "tool_error" }
+    else
+        -- ContentClassifier.ContentType.GENERIC_TEXT or unknown
+        return M.ContentType.GENERIC_TEXT, {}
+    end
+end
+
 ---Extract file extension from file content or path hints
 ---@param content string File content
 ---@return string? extension File extension or nil
@@ -105,13 +136,15 @@ end
 ---@param tool_name? string Tool that generated the content
 ---@param content string Content to render
 ---@param parent_window? number Parent window for positioning
+---@param structured_content? table Original Claude Code JSON structure for sophisticated classification
 ---@return CcTui.ContentWindow? window Created content window or nil
-function M.render_content(result_node_id, tool_name, content, parent_window)
+function M.render_content(result_node_id, tool_name, content, parent_window, structured_content)
     vim.validate({
         result_node_id = { result_node_id, "string" },
         tool_name = { tool_name, "string", true },
         content = { content, "string" },
         parent_window = { parent_window, "number", true },
+        structured_content = { structured_content, "table", true },
     })
 
     local log = require("cc-tui.util.log")
@@ -128,8 +161,30 @@ function M.render_content(result_node_id, tool_name, content, parent_window)
     -- Close existing window for this result if open
     M.close_content_window(result_node_id)
 
-    local content_type, metadata = M.detect_content_type(content, tool_name)
-    log.debug("content_renderer", string.format("detected content_type: %s", content_type))
+    local content_type, metadata
+    if structured_content then
+        -- 🚀 USE SOPHISTICATED CONTENTCLASSIFIER - 5,370+ lines of infrastructure!
+        local ContentClassifier = require("cc-tui.utils.content_classifier")
+        local classification = ContentClassifier.classify_from_structured_data(structured_content, content)
+
+        log.debug(
+            "content_renderer",
+            string.format(
+                "🚀 SOPHISTICATED: Using ContentClassifier.classify_from_structured_data() - type=%s, confidence=%.2f",
+                classification.type,
+                classification.confidence
+            )
+        )
+
+        -- Map sophisticated classification to legacy ContentType enum
+        content_type, metadata = M.map_sophisticated_classification(classification)
+    else
+        -- ⚠️ FALLBACK: Using old detect_content_type for backward compatibility
+        log.debug("content_renderer", "⚠️ FALLBACK: No structured content, using legacy detect_content_type")
+        content_type, metadata = M.detect_content_type(content, tool_name)
+    end
+
+    log.debug("content_renderer", string.format("final content_type: %s", content_type))
     local window
 
     if content_type == M.ContentType.JSON then
