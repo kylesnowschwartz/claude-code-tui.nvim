@@ -168,26 +168,32 @@ end
 ---@param tool_use_id string Reference to tool use
 ---@param content any Result content
 ---@param is_error? boolean Whether result is an error
+---@param preview_text? string Custom preview text for the result
 ---@return CcTui.ResultNode node
-function M.create_result_node(tool_use_id, content, is_error)
+function M.create_result_node(tool_use_id, content, is_error, preview_text)
     vim.validate({
         tool_use_id = { tool_use_id, "string" },
         is_error = { is_error, "boolean", true },
+        preview_text = { preview_text, "string", true },
     })
 
-    local text = "Result"
-    if is_error then
-        text = "❌ Error"
-    elseif type(content) == "string" then
-        -- Show first line of content, sanitized
-        local first_line = content:match("^[^\n\r]*")
-        if first_line and #first_line > 0 then
-            -- Remove any remaining control characters
-            first_line = first_line:gsub("[\n\r\t]", " ")
-            if #first_line > 60 then
-                first_line = first_line:sub(1, 57) .. "..."
+    local text = preview_text
+
+    if not text then
+        text = "Result"
+        if is_error then
+            text = "❌ Error"
+        elseif type(content) == "string" then
+            -- Show first line of content, sanitized
+            local first_line = content:match("^[^\n\r]*")
+            if first_line and #first_line > 0 then
+                -- Remove any remaining control characters
+                first_line = first_line:gsub("[\n\r\t]", " ")
+                if #first_line > 60 then
+                    first_line = first_line:sub(1, 57) .. "..."
+                end
+                text = first_line
             end
-            text = first_line
         end
     end
 

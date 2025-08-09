@@ -272,6 +272,9 @@ function M.disable(scope)
         main_state.popup = nil
     end
 
+    -- Clean up content windows
+    Tree.cleanup_content_windows()
+
     -- Clear tree and data
     main_state.tree = nil
     main_state.tree_data = nil
