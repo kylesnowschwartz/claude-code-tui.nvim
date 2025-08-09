@@ -54,7 +54,7 @@ lint:
 
 luals-ci:
 	rm -rf .ci/lua-ls/log
-	lua-language-server --configpath .luarc.json --logpath .ci/lua-ls/log --check .
+	.ci/lua-ls/bin/lua-language-server --configpath .luarc.json --logpath .ci/lua-ls/log --check .
 	[ -f .ci/lua-ls/log/check.json ] && { cat .ci/lua-ls/log/check.json 2>/dev/null; exit 1; } || true
 
 luals:
