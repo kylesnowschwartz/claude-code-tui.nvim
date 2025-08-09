@@ -212,8 +212,8 @@ function M.show_help(keymap_type)
     local buf = vim.api.nvim_create_buf(false, true)
 
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-    vim.api.nvim_buf_set_option(buf, "modifiable", false)
-    vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+    vim.bo[buf].modifiable = false
+    vim.bo[buf].buftype = "nofile"
 
     local win = vim.api.nvim_open_win(buf, true, {
         relative = "editor",

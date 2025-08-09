@@ -113,10 +113,22 @@ function M.render_content(result_node_id, tool_name, content, parent_window)
         parent_window = { parent_window, "number", true },
     })
 
+    local log = require("cc-tui.util.log")
+    log.debug(
+        "content_renderer",
+        string.format(
+            "render_content called: id=%s, tool=%s, content_len=%d",
+            result_node_id,
+            tool_name or "nil",
+            #content
+        )
+    )
+
     -- Close existing window for this result if open
     M.close_content_window(result_node_id)
 
     local content_type, metadata = M.detect_content_type(content, tool_name)
+    log.debug("content_renderer", string.format("detected content_type: %s", content_type))
     local window
 
     if content_type == M.ContentType.JSON then
@@ -144,45 +156,49 @@ end
 ---@param _metadata table Content metadata (unused)
 ---@return CcTui.ContentWindow window Created content window
 function M.render_json_content(result_id, content, _metadata)
+    local log = require("cc-tui.util.log")
     local lines = vim.split(content, "\n")
     local line_count = #lines
+
+    log.debug("content_renderer", string.format("render_json_content: id=%s, lines=%d", result_id, line_count))
 
     -- Choose display method based on content size
     local popup
     if line_count > 30 then
-        -- Large JSON - use popup window
+        -- Large JSON - use popup window with enhanced navigation
         popup = Popup({
-            enter = false,
+            enter = true, -- Focus the window for navigation
             focusable = true,
             border = {
                 style = "rounded",
                 text = {
-                    top = string.format(" JSON Content (%d lines) ", line_count),
+                    top = string.format(" JSON Content (%d lines) [za/zo/zc to fold] ", line_count),
                     top_align = "center",
                 },
             },
-            position = { row = "10%", col = "70%" },
-            size = { width = "30%", height = "80%" },
+            position = { row = "5%", col = "50%" },
+            size = { width = "45%", height = "90%" },
             buf_options = {
                 modifiable = false,
                 readonly = true,
                 filetype = "json",
             },
             win_options = {
-                wrap = true,
+                wrap = false,
                 linebreak = true,
                 number = true,
                 relativenumber = false,
+                cursorline = true,
             },
         })
     else
         -- Medium JSON - use smaller popup
         popup = Popup({
-            enter = false,
+            enter = true,
             focusable = true,
             border = {
                 style = "single",
-                text = { top = " JSON ", top_align = "center" },
+                text = { top = " JSON [za to fold] ", top_align = "center" },
             },
             position = { row = "20%", col = "60%" },
             size = { width = "35%", height = math.min(line_count + 4, 25) },
@@ -194,24 +210,59 @@ function M.render_json_content(result_id, content, _metadata)
             win_options = {
                 wrap = true,
                 linebreak = true,
+                cursorline = true,
             },
         })
     end
 
-    popup:mount()
+    local mount_ok, mount_err = pcall(function()
+        popup:mount()
+    end)
+
+    if not mount_ok then
+        log.debug("content_renderer", string.format("Failed to mount JSON popup: %s", mount_err))
+        return nil
+    end
+
+    log.debug(
+        "content_renderer",
+        string.format("Successfully mounted JSON popup: winid=%s, bufnr=%s", popup.winid, popup.bufnr)
+    )
 
     -- Temporarily make buffer modifiable to set content
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
+    vim.bo[popup.bufnr].modifiable = true
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
+    vim.bo[popup.bufnr].modifiable = false
 
-    -- Add close keybinding
+    -- Enable treesitter folding for JSON navigation
+    vim.api.nvim_buf_call(popup.bufnr, function()
+        vim.opt_local.foldmethod = "expr"
+        vim.opt_local.foldexpr = "v:lua.vim.treesitter.foldexpr()"
+        vim.opt_local.foldenable = true
+        vim.opt_local.foldlevel = 1 -- Start with top-level objects folded
+        vim.opt_local.foldlevelstart = 1
+    end)
+
+    -- Add navigation and close keybindings
     popup:map("n", "q", function()
         M.close_content_window(result_id)
     end, { noremap = true, silent = true })
 
     popup:map("n", "<Esc>", function()
         M.close_content_window(result_id)
+    end, { noremap = true, silent = true })
+
+    -- Enhanced JSON navigation bindings
+    popup:map("n", "zR", function()
+        vim.api.nvim_win_call(popup.winid, function()
+            vim.cmd("normal! zR")
+        end)
+    end, { noremap = true, silent = true })
+
+    popup:map("n", "zM", function()
+        vim.api.nvim_win_call(popup.winid, function()
+            vim.cmd("normal! zM")
+        end)
     end, { noremap = true, silent = true })
 
     return {
@@ -258,9 +309,9 @@ function M.render_file_content(result_id, content, metadata)
     popup:mount()
 
     -- Temporarily make buffer modifiable to set content
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
+    vim.bo[popup.bufnr].modifiable = true
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
+    vim.bo[popup.bufnr].modifiable = false
 
     -- Add close keybindings
     popup:map("n", "q", function()
@@ -313,9 +364,9 @@ function M.render_command_output(result_id, content, _metadata)
     popup:mount()
 
     -- Temporarily make buffer modifiable to set content
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
+    vim.bo[popup.bufnr].modifiable = true
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
+    vim.bo[popup.bufnr].modifiable = false
 
     -- Add close keybindings
     popup:map("n", "q", function()
@@ -363,9 +414,9 @@ function M.render_error_content(result_id, content, _metadata)
     popup:mount()
 
     -- Temporarily make buffer modifiable to set content
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
+    vim.bo[popup.bufnr].modifiable = true
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
+    vim.bo[popup.bufnr].modifiable = false
 
     -- Add error highlighting
     local ns_id = vim.api.nvim_create_namespace("cc_tui_error")
@@ -395,39 +446,97 @@ end
 ---@param metadata table Content metadata
 ---@return CcTui.ContentWindow window Created content window
 function M.render_generic_content(result_id, content, _metadata)
+    local log = require("cc-tui.util.log")
     local lines = vim.split(content, "\n")
     local line_count = #lines
 
-    local popup = Popup({
-        enter = false,
-        focusable = true,
-        border = {
-            style = "rounded",
-            text = {
-                top = string.format(" Content (%d lines) ", line_count),
-                top_align = "center",
-            },
-        },
-        position = { row = "20%", col = "60%" },
-        size = { width = "35%", height = math.min(line_count + 4, 25) },
-        buf_options = {
-            modifiable = false,
-            readonly = true,
-        },
-        win_options = {
-            wrap = true,
-            linebreak = true,
-        },
-    })
+    log.debug("content_renderer", string.format("render_generic_content: id=%s, lines=%d", result_id, line_count))
 
-    popup:mount()
+    -- Use adaptive sizing like JSON renderer
+    local popup
+    if line_count > 30 then
+        -- Large content - use prominent window
+        popup = Popup({
+            enter = true, -- FIXED: Now focusable and visible
+            focusable = true,
+            border = {
+                style = "rounded",
+                text = {
+                    top = string.format(" Content (%d lines) [q to close] ", line_count),
+                    top_align = "center",
+                },
+            },
+            position = { row = "5%", col = "50%" }, -- FIXED: Better positioning
+            size = { width = "45%", height = "90%" }, -- FIXED: Much larger size
+            buf_options = {
+                modifiable = false,
+                readonly = true,
+                filetype = "markdown", -- Better highlighting for structured text
+            },
+            win_options = {
+                wrap = false,
+                linebreak = true,
+                number = true,
+                cursorline = true,
+            },
+        })
+    else
+        -- Medium content - use smaller window
+        popup = Popup({
+            enter = true, -- FIXED: Now focusable
+            focusable = true,
+            border = {
+                style = "single",
+                text = {
+                    top = string.format(" Content (%d lines) ", line_count),
+                    top_align = "center",
+                },
+            },
+            position = { row = "20%", col = "60%" },
+            size = { width = "40%", height = math.min(line_count + 4, 30) }, -- FIXED: Larger limits
+            buf_options = {
+                modifiable = false,
+                readonly = true,
+                filetype = "markdown",
+            },
+            win_options = {
+                wrap = true,
+                linebreak = true,
+                cursorline = true,
+            },
+        })
+    end
+
+    local mount_ok, mount_err = pcall(function()
+        popup:mount()
+    end)
+
+    if not mount_ok then
+        log.debug("content_renderer", string.format("Failed to mount generic content popup: %s", mount_err))
+        return nil
+    end
+
+    log.debug(
+        "content_renderer",
+        string.format("Successfully mounted generic content popup: winid=%s, bufnr=%s", popup.winid, popup.bufnr)
+    )
 
     -- Temporarily make buffer modifiable to set content
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
+    vim.bo[popup.bufnr].modifiable = true
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
-    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
+    vim.bo[popup.bufnr].modifiable = false
 
-    -- Add close keybindings
+    -- Enable basic folding for structured content (if line count is high)
+    if line_count > 30 then
+        vim.api.nvim_buf_call(popup.bufnr, function()
+            vim.opt_local.foldmethod = "indent"
+            vim.opt_local.foldenable = true
+            vim.opt_local.foldlevel = 2 -- Start with some content visible
+            vim.opt_local.foldlevelstart = 2
+        end)
+    end
+
+    -- Add navigation and close keybindings
     popup:map("n", "q", function()
         M.close_content_window(result_id)
     end, { noremap = true, silent = true })
@@ -435,6 +544,21 @@ function M.render_generic_content(result_id, content, _metadata)
     popup:map("n", "<Esc>", function()
         M.close_content_window(result_id)
     end, { noremap = true, silent = true })
+
+    -- Add folding shortcuts for large content
+    if line_count > 30 then
+        popup:map("n", "zR", function()
+            vim.api.nvim_win_call(popup.winid, function()
+                vim.cmd("normal! zR")
+            end)
+        end, { noremap = true, silent = true })
+
+        popup:map("n", "zM", function()
+            vim.api.nvim_win_call(popup.winid, function()
+                vim.cmd("normal! zM")
+            end)
+        end, { noremap = true, silent = true })
+    end
 
     return {
         popup = popup,
