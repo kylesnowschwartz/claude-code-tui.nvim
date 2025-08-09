@@ -7,6 +7,9 @@ if #vim.api.nvim_list_uis() == 0 then
     -- Assumed that 'mini.nvim' is stored in 'deps/mini.nvim'
     vim.cmd("set rtp+=deps/mini.nvim")
 
+    -- Add nui-components for development and testing
+    vim.cmd("set rtp+=deps/nui-components.nvim")
+
     -- Set up 'mini.test'
     require("mini.test").setup()
 

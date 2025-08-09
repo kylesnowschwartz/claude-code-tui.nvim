@@ -84,3 +84,5 @@ These libraries are useful for creating rich TUI interfaces in Neovim plugins an
 - Tests must pass on multiple Neovim versions as defined in CI
 - Documentation is auto-generated from code comments using mini.doc
 - Plugin follows Neovim's standard plugin architecture patterns
+
+- in order to install deps we need to `rm -rf deps/` then `make deps` or else new deps won't install

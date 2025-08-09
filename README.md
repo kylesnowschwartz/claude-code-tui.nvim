@@ -47,9 +47,20 @@ _[GIF version of the showcase video for mobile users](SHOWCASE_GIF_LINK)_
 
 ```lua
 -- stable version
-use {"cc-tui.nvim", tag = "*" }
+use {
+  "cc-tui.nvim", 
+  tag = "*",
+  requires = {
+    "grapp-dev/nui-components.nvim"
+  }
+}
 -- dev version
-use {"cc-tui.nvim"}
+use {
+  "cc-tui.nvim",
+  requires = {
+    "grapp-dev/nui-components.nvim"
+  }
+}
 ```
 
 </td>
@@ -62,10 +73,12 @@ use {"cc-tui.nvim"}
 </td>
 <td>
 
-```lua
--- stable version
+```vim
+" stable version
+Plug "grapp-dev/nui-components.nvim"
 Plug "cc-tui.nvim", { "tag": "*" }
--- dev version
+" dev version
+Plug "grapp-dev/nui-components.nvim"
 Plug "cc-tui.nvim"
 ```
 
@@ -81,9 +94,24 @@ Plug "cc-tui.nvim"
 
 ```lua
 -- stable version
-require("lazy").setup({{"cc-tui.nvim", version = "*"}})
+require("lazy").setup({
+  {
+    "cc-tui.nvim", 
+    version = "*",
+    dependencies = {
+      "grapp-dev/nui-components.nvim"
+    }
+  }
+})
 -- dev version
-require("lazy").setup({"cc-tui.nvim"})
+require("lazy").setup({
+  {
+    "cc-tui.nvim",
+    dependencies = {
+      "grapp-dev/nui-components.nvim"
+    }
+  }
+})
 ```
 
 </td>

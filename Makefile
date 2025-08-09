@@ -21,9 +21,11 @@ test-0.8.3:
 	make test
 
 # installs `mini.nvim`, used for both the tests and documentation.
+# also installs nui-components for development.
 deps:
 	@mkdir -p deps
 	git clone --depth 1 https://github.com/echasnovski/mini.nvim deps/mini.nvim
+	git clone --depth 1 https://github.com/grapp-dev/nui-components.nvim deps/nui-components.nvim
 
 # installs deps before running tests, useful for the CI.
 test-ci: deps test
