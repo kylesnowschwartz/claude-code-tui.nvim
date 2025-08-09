@@ -44,7 +44,16 @@ jobs:
         run: make documentation-ci
 
       - name: check docs diff
-        run: exit $(git status --porcelain doc | wc -l | tr -d " ")
+        run: |
+          # Check if there are meaningful content changes (ignore whitespace-only diffs)
+          if git diff --ignore-space-at-eol --ignore-blank-lines --quiet doc/; then
+            echo "✅ Documentation is up to date"
+            exit 0
+          else
+            echo "❌ Documentation has meaningful changes:"
+            git diff --ignore-space-at-eol --ignore-blank-lines doc/
+            exit 1
+          fi
 
   tests:
     needs:

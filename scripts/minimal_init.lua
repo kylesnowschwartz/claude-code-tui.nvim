@@ -24,24 +24,17 @@ if #vim.api.nvim_list_uis() == 0 then
                 local seen_tags = {}
                 local new_lines = {}
 
-                for i, line in ipairs(lines) do
+                for _, line in ipairs(lines) do
                     -- Check for help tags (pattern: *tag_name*)
                     local tag = line:match("^%s*%*([^%*]+)%*%s*$")
                     if tag then
-                        if seen_tags[tag] then
-                            -- Skip duplicate tag
-                        else
+                        if not seen_tags[tag] then
                             seen_tags[tag] = true
                             table.insert(new_lines, line)
                         end
                     else
                         table.insert(new_lines, line)
                     end
-                end
-
-                -- Ensure the file ends with a newline by adding empty line if needed
-                if #new_lines > 0 and new_lines[#new_lines] ~= "" then
-                    table.insert(new_lines, "")
                 end
 
                 return new_lines
