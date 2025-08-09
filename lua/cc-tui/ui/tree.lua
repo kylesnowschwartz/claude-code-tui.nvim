@@ -165,23 +165,55 @@ function M.setup_keybindings(tree, bufnr, config)
 
     -- Navigation
     map(config.keymaps.focus_next, function()
-        local node = tree:get_node()
-        if node then
-            local next_node = tree:get_node(node:get_next_id())
+        local curr_linenr = vim.api.nvim_win_get_cursor(0)[1]
+
+        -- Find the next line that has a node
+        local next_linenr = curr_linenr + 1
+        local max_lines = vim.api.nvim_buf_line_count(tree.bufnr)
+
+        -- Loop through lines to find next node
+        while next_linenr <= max_lines do
+            local next_node = tree:get_node(next_linenr)
             if next_node then
-                tree:focus_node(next_node:get_id())
-                tree:render()
+                vim.api.nvim_win_set_cursor(0, { next_linenr, 0 })
+                return
+            end
+            next_linenr = next_linenr + 1
+        end
+
+        -- If we've reached the end, wrap to the first node
+        for linenr = 1, curr_linenr - 1 do
+            local node = tree:get_node(linenr)
+            if node then
+                vim.api.nvim_win_set_cursor(0, { linenr, 0 })
+                return
             end
         end
     end, "Focus next node")
 
     map(config.keymaps.focus_prev, function()
-        local node = tree:get_node()
-        if node then
-            local prev_node = tree:get_node(node:get_prev_id())
+        local curr_linenr = vim.api.nvim_win_get_cursor(0)[1]
+
+        -- Find the previous line that has a node
+        local prev_linenr = curr_linenr - 1
+
+        -- Loop backwards through lines to find previous node
+        while prev_linenr >= 1 do
+            local prev_node = tree:get_node(prev_linenr)
             if prev_node then
-                tree:focus_node(prev_node:get_id())
-                tree:render()
+                vim.api.nvim_win_set_cursor(0, { prev_linenr, 0 })
+                return
+            end
+            prev_linenr = prev_linenr - 1
+        end
+
+        -- If we've reached the beginning, wrap to the last node
+        local max_lines = vim.api.nvim_buf_line_count(tree.bufnr)
+        for linenr = max_lines, curr_linenr + 1, -1 do
+            local node = tree:get_node(linenr)
+            if node then
+                vim.api.nvim_win_set_cursor(0, { linenr, 0 })
+                return
             end
         end
     end, "Focus previous node")
