@@ -1,5 +1,5 @@
-local main = require("cc-tui.main")
 local config = require("cc-tui.config")
+local main = require("cc-tui.main")
 
 local CcTui = {}
 

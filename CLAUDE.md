@@ -23,6 +23,37 @@ The template follows a standard Neovim plugin architecture:
 3. **State Management**: Maintains enabled/disabled state with persistence
 4. **Logging**: Debug logging system with scope-based messages
 
+## Code Style Requirements for AI Agents
+
+*MANDATORY for all AI agents working on this codebase*
+
+### **Essential Reading**
+1. **📋 Read `STYLE_GUIDE.md` FIRST** - Contains complete patterns and examples
+2. **🔍 Check existing files** for established patterns before coding
+3. **⚙️ Understand tooling** - Use `make style-fix` and `make style-check`
+
+### **Non-Negotiable Requirements**
+- ✅ **Documentation**: Every function needs `@param` and `@return` annotations
+- ✅ **Validation**: Every public API must use `vim.validate()`
+- ✅ **Error Handling**: Every UI operation needs `pcall()` protection
+- ✅ **Method Calls**: Always use colon syntax: `state:method()` not `state.method(state)`
+- ✅ **Component Cleanup**: Store references and unmount properly
+
+### **Workflow Commands**
+```bash
+make style-fix     # Auto-format and sort imports (run before/after coding)
+make style-check   # Verify compliance (must pass before submitting)
+```
+
+### **Quality Gate**
+Code will be rejected if:
+- Missing type annotations or documentation
+- Style checks fail
+- UI components lack proper error handling
+- Inconsistent patterns with existing codebase
+
+**📚 For complete patterns, examples, and anti-patterns, see `STYLE_GUIDE.md`**
+
 ## Development Commands
 
 ### Setup and Installation
@@ -31,8 +62,10 @@ The template follows a standard Neovim plugin architecture:
 
 ### Core Development
 - `make deps` - Install mini.nvim dependency for docs and tests
-- `make lint` - Format code with StyLua and run luacheck
-- `make test` - Run tests using mini.test
+- `make style-fix` - **Auto-fix style issues (run before committing)**
+- `make style-check` - **Check style without fixing (for CI)**
+- `make lint` - Format code with StyLua and run luacheck (legacy - use style-* instead)
+- `make test` - Run tests using mini.test  
 - `make documentation` - Generate Neovim documentation using mini.doc
 - `make all` - Run documentation, lint, luals, and test
 

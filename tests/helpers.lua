@@ -8,24 +8,13 @@ local function error_message(str, pattern)
     return string.format("Pattern: %s\nObserved string: %s", vim.inspect(pattern), str)
 end
 
-Helpers.expect.buf_width = MiniTest.new_expectation(
-    "variable in child process matches",
-    function(child, field, value)
-        return Helpers.expect.equality(
-            child.lua_get("vim.api.nvim_win_get_width(_G.CcTui.state." .. field .. ")"),
-            value
-        )
-    end,
-    error_message
-)
+Helpers.expect.buf_width = MiniTest.new_expectation("variable in child process matches", function(child, field, value)
+    return Helpers.expect.equality(child.lua_get("vim.api.nvim_win_get_width(_G.CcTui.state." .. field .. ")"), value)
+end, error_message)
 
-Helpers.expect.global = MiniTest.new_expectation(
-    "variable in child process matches",
-    function(child, field, value)
-        return Helpers.expect.equality(child.lua_get(field), value)
-    end,
-    error_message
-)
+Helpers.expect.global = MiniTest.new_expectation("variable in child process matches", function(child, field, value)
+    return Helpers.expect.equality(child.lua_get(field), value)
+end, error_message)
 
 Helpers.expect.global_type = MiniTest.new_expectation(
     "variable type in child process matches",
@@ -35,37 +24,25 @@ Helpers.expect.global_type = MiniTest.new_expectation(
     error_message
 )
 
-Helpers.expect.config = MiniTest.new_expectation(
-    "config option matches",
-    function(child, field, value)
-        if field == "" then
-            return Helpers.expect.global(child, "_G.CcTui.config" .. field, value)
-        else
-            return Helpers.expect.global(child, "_G.CcTui.config." .. field, value)
-        end
-    end,
-    error_message
-)
+Helpers.expect.config = MiniTest.new_expectation("config option matches", function(child, field, value)
+    if field == "" then
+        return Helpers.expect.global(child, "_G.CcTui.config" .. field, value)
+    else
+        return Helpers.expect.global(child, "_G.CcTui.config." .. field, value)
+    end
+end, error_message)
 
-Helpers.expect.config_type = MiniTest.new_expectation(
-    "config option type matches",
-    function(child, field, value)
-        return Helpers.expect.global(child, "type(_G.CcTui.config." .. field .. ")", value)
-    end,
-    error_message
-)
+Helpers.expect.config_type = MiniTest.new_expectation("config option type matches", function(child, field, value)
+    return Helpers.expect.global(child, "type(_G.CcTui.config." .. field .. ")", value)
+end, error_message)
 
 Helpers.expect.state = MiniTest.new_expectation("state matches", function(child, field, value)
     return Helpers.expect.global(child, "_G.CcTui.state." .. field, value)
 end, error_message)
 
-Helpers.expect.state_type = MiniTest.new_expectation(
-    "state type matches",
-    function(child, field, value)
-        return Helpers.expect.global(child, "type(_G.CcTui.state." .. field .. ")", value)
-    end,
-    error_message
-)
+Helpers.expect.state_type = MiniTest.new_expectation("state type matches", function(child, field, value)
+    return Helpers.expect.global(child, "type(_G.CcTui.state." .. field .. ")", value)
+end, error_message)
 
 Helpers.expect.match = MiniTest.new_expectation("string matching", function(str, pattern)
     return str:find(pattern) ~= nil
@@ -84,8 +61,7 @@ Helpers.new_child_neovim = function()
             return
         end
 
-        local msg =
-            string.format("Can not use `child.%s` because child process is blocked.", method)
+        local msg = string.format("Can not use `child.%s` because child process is blocked.", method)
         error(msg)
     end
 

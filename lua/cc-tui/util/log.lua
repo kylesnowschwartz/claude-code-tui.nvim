@@ -37,11 +37,7 @@ function log.notify(scope, level, verbose, str, ...)
         end
     end
 
-    vim.notify(
-        string.format("[cc-tui.nvim@%s] %s", scope, string.format(str, ...)),
-        level,
-        { title = "cc-tui.nvim" }
-    )
+    vim.notify(string.format("[cc-tui.nvim@%s] %s", scope, string.format(str, ...)), level, { title = "cc-tui.nvim" })
 end
 
 --- analyzes the user provided `setup` parameters and sends a message if they use a deprecated option, then gives the new option to use.
@@ -69,18 +65,8 @@ function log.warn_deprecation(options)
     end
 
     if uses_deprecated_option then
-        log.notify(
-            "deprecated_options",
-            vim.log.levels.WARN,
-            true,
-            "sorry to bother you with the breaking changes :("
-        )
-        log.notify(
-            "deprecated_options",
-            vim.log.levels.WARN,
-            true,
-            "use `:h CcTui.options` to read more."
-        )
+        log.notify("deprecated_options", vim.log.levels.WARN, true, "sorry to bother you with the breaking changes :(")
+        log.notify("deprecated_options", vim.log.levels.WARN, true, "use `:h CcTui.options` to read more.")
     end
 end
 

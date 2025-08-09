@@ -1,6 +1,6 @@
+local Popup = require("nui.popup")
 local log = require("cc-tui.util.log")
 local state = require("cc-tui.state")
-local Popup = require("nui.popup")
 
 -- internal methods
 local main = {}

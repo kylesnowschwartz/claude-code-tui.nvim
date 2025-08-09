@@ -2,6 +2,15 @@
 
 all: documentation lint luals test
 
+# fixes style issues automatically
+style-fix:
+	stylua . -g '*.lua' -g '!deps/' -g '!nightly/'
+
+# checks style without fixing (for CI)
+style-check:
+	stylua --check . -g '*.lua' -g '!deps/' -g '!nightly/'
+	luacheck plugin/ lua/
+
 # runs all the test files.
 test:
 	make deps
