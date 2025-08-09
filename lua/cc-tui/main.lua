@@ -2,37 +2,37 @@ local Popup = require("nui.popup")
 local log = require("cc-tui.util.log")
 local state = require("cc-tui.state")
 
--- internal methods
-local main = {}
+---@class CcTui.Main
+local M = {}
 
 -- Toggle the plugin by calling the `enable`/`disable` methods respectively.
 --
 ---@param scope string: internal identifier for logging purposes.
 ---@private
-function main.toggle(scope)
-    if state.get_enabled(state) then
+function M.toggle(scope)
+    if state:get_enabled() then
         log.debug(scope, "cc-tui is now disabled!")
 
-        return main.disable(scope)
+        return M.disable(scope)
     end
 
     log.debug(scope, "cc-tui is now enabled!")
 
-    main.enable(scope)
+    M.enable(scope)
 end
 
 --- Initializes the plugin, sets event listeners and internal state.
 ---
 --- @param scope string: internal identifier for logging purposes.
 ---@private
-function main.enable(scope)
-    if state.get_enabled(state) then
+function M.enable(scope)
+    if state:get_enabled() then
         log.debug(scope, "cc-tui is already enabled")
 
         return
     end
 
-    state.set_enabled(state)
+    state:set_enabled()
 
     -- Create full screen popup
     local popup = Popup({
@@ -74,38 +74,40 @@ function main.enable(scope)
 
     -- Add keymap to close with 'q'
     popup:map("n", "q", function()
-        main.disable("keymap_q")
+        M.disable("keymap_q")
     end, { noremap = true })
 
     -- Store popup reference
-    state.set_ui_component(state, popup)
+    state:set_ui_component(popup)
 
     -- saves the state globally to `_G.CcTui.state`
-    state.save(state)
+    state:save()
 end
 
 --- Disables the plugin for the given tab, clear highlight groups and autocmds, closes side buffers and resets the internal state.
 ---
 --- @param scope string: internal identifier for logging purposes.
 ---@private
-function main.disable(scope)
-    if not state.get_enabled(state) then
+function M.disable(scope)
+    if not state:get_enabled() then
         log.debug(scope, "cc-tui is already disabled")
 
         return
     end
 
     -- Get the popup reference and unmount it
-    local popup = state.get_ui_component(state)
+    local popup = state:get_ui_component()
     if popup then
         popup:unmount()
-        state.set_ui_component(state, nil)
+        state:set_ui_component(nil)
     end
 
-    state.set_disabled(state)
+    state:set_disabled()
 
     -- saves the state globally to `_G.CcTui.state`
-    state.save(state)
+    state:save()
+
+    return true, nil
 end
 
-return main
+return M
