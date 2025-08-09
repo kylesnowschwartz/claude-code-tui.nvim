@@ -134,7 +134,10 @@ function M.enable(scope)
             number = false,
             relativenumber = false,
             signcolumn = "no",
-            wrap = false,
+            wrap = true,
+            linebreak = true,
+            breakindent = true,
+            breakindentopt = "shift:2",
         },
     })
 

@@ -208,16 +208,25 @@ end
 ---@param text string Text content
 ---@param parent_id? string Parent node ID for unique identification
 ---@param counter? number Unique counter to ensure ID uniqueness
+---@param max_length? number Maximum length before truncation (default: 120)
 ---@return CcTui.BaseNode node
-function M.create_text_node(text, parent_id, counter)
+function M.create_text_node(text, parent_id, counter, max_length)
     vim.validate({
         text = { text, "string" },
         parent_id = { parent_id, "string", true },
         counter = { counter, "number", true },
+        max_length = { max_length, "number", true },
     })
 
-    -- Sanitize text to ensure no newlines
-    text = text:gsub("[\n\r]", " ")
+    max_length = max_length or 120
+
+    -- Sanitize text to ensure no newlines and normalize whitespace
+    text = text:gsub("[\n\r]", " "):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+
+    -- Truncate if too long
+    if #text > max_length then
+        text = text:sub(1, max_length - 3) .. "..."
+    end
 
     -- Generate unique ID with counter to prevent duplicates
     local id

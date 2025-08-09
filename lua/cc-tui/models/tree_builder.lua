@@ -192,12 +192,15 @@ function M.create_message_node_from_message(message, create_text_node)
         -- 1. No tools present (tools are more important than text details)
         -- 2. Text is significantly longer than the preview (avoid duplication)
         if not has_tools and text_content and #text_content > 150 then
-            local full_text = text_content:gsub("\n", " "):gsub("%s+", " ")
-            if #full_text > 200 then
-                full_text = full_text:sub(1, 197) .. "..."
+            local clean_text = text_content:gsub("[\n\r]", " "):gsub("%s+", " ")
+
+            -- Break long text into readable chunks
+            local chunks = M.split_text_into_chunks(clean_text, 120)
+            for i, chunk in ipairs(chunks) do
+                local prefix = i == 1 and "Full text: " or "          "
+                local text_node = create_text_node(prefix .. chunk, node.id, i)
+                table.insert(node.children, text_node)
             end
-            local text_node = create_text_node("Full text: " .. full_text, node.id)
-            table.insert(node.children, text_node)
         end
     end
 
@@ -237,17 +240,69 @@ function M.create_result_node_from_content(tool_use_id, content, create_text_nod
 
     local node = Node.create_result_node(tool_use_id, result_text, is_error)
 
-    -- Add content as a single child (truncated if too long)
+    -- Add content as child nodes with proper text wrapping
     if result_text and result_text ~= "" then
-        local display_text = result_text:gsub("\n", " "):gsub("%s+", " ")
-        if #display_text > 200 then
-            display_text = display_text:sub(1, 197) .. "..."
+        -- Split very long content into manageable chunks
+        local clean_text = result_text:gsub("[\n\r]", " "):gsub("%s+", " ")
+
+        if #clean_text <= 150 then
+            -- Short content - single node
+            local text_node = create_text_node(clean_text, node.id)
+            table.insert(node.children, text_node)
+        else
+            -- Long content - break into logical chunks
+            local chunks = M.split_text_into_chunks(clean_text, 120)
+            for i, chunk in ipairs(chunks) do
+                local text_node = create_text_node(chunk, node.id, i)
+                table.insert(node.children, text_node)
+            end
         end
-        local text_node = create_text_node(display_text, node.id)
-        table.insert(node.children, text_node)
     end
 
     return node
+end
+
+---Split long text into readable chunks at word boundaries
+---@param text string Text to split
+---@param max_chunk_size number Maximum size per chunk
+---@return string[] chunks Array of text chunks
+function M.split_text_into_chunks(text, max_chunk_size)
+    vim.validate({
+        text = { text, "string" },
+        max_chunk_size = { max_chunk_size, "number" },
+    })
+
+    if #text <= max_chunk_size then
+        return { text }
+    end
+
+    local chunks = {}
+    local remaining = text
+
+    while #remaining > 0 do
+        if #remaining <= max_chunk_size then
+            table.insert(chunks, remaining)
+            break
+        end
+
+        -- Find the last space within the chunk size
+        local chunk = remaining:sub(1, max_chunk_size)
+        local last_space = chunk:match(".*()%s")
+
+        if last_space and last_space > max_chunk_size / 2 then
+            -- Cut at last space if it's not too early
+            chunk = remaining:sub(1, last_space - 1)
+            remaining = remaining:sub(last_space + 1)
+        else
+            -- No good break point, cut at limit
+            chunk = remaining:sub(1, max_chunk_size - 3) .. "..."
+            remaining = remaining:sub(max_chunk_size - 2)
+        end
+
+        table.insert(chunks, chunk)
+    end
+
+    return chunks
 end
 
 ---Process nested tools (for Task agents)
