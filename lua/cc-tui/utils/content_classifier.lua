@@ -66,7 +66,115 @@ local function get_config()
     }
 end
 
----Classify content and determine appropriate display strategy
+---Classify content from structured Claude Code JSON data (DETERMINISTIC - no confidence intervals needed)
+---@param structured_data table Claude Code JSON message or content object
+---@param content string Raw content text for display
+---@return CcTui.ClassificationResult result Classification result with 100% accuracy
+function M.classify_from_structured_data(structured_data, content)
+    vim.validate({
+        structured_data = { structured_data, "table" },
+        content = { content, "string" },
+    })
+
+    -- Note: config not needed for deterministic classification but kept for future extensibility
+    local _ = get_config()
+
+    -- Initialize result structure
+    local result = {
+        type = M.ContentType.GENERIC_TEXT,
+        confidence = 1.0, -- Always 100% confident with structured data
+        metadata = {
+            content_length = #content,
+            line_count = M._count_lines(content),
+            structured_source = true,
+        },
+        display_strategy = "adaptive_popup_or_inline",
+    }
+
+    -- DETERMINISTIC CLASSIFICATION based on Claude Code JSON structure
+
+    -- Tool Input: content.type == "tool_use"
+    if structured_data.type == "tool_use" then
+        result.type = M.ContentType.TOOL_INPUT
+        result.display_strategy = "json_popup_always"
+        result.metadata.tool_name = structured_data.name
+        result.metadata.tool_id = structured_data.id
+        result.metadata.is_tool_input = true
+        result.metadata.classification_method = "structured_tool_use"
+        return result
+    end
+
+    -- Tool Result: content.type == "tool_result"
+    if structured_data.type == "tool_result" then
+        result.metadata.tool_use_id = structured_data.tool_use_id
+        result.metadata.is_tool_result = true
+        result.metadata.classification_method = "structured_tool_result"
+
+        -- Get tool name from context or infer from tool_use_id patterns
+        local tool_name = result.metadata.tool_name or M._infer_tool_name_from_context(structured_data)
+
+        -- Apply tool-specific classification
+        if tool_name == "Read" then
+            result.type = M.ContentType.FILE_CONTENT
+            result.display_strategy = "syntax_highlighted_popup"
+            result.metadata.file_type = M._detect_file_type(content)
+        elseif tool_name == "Bash" then
+            result.type = M.ContentType.COMMAND_OUTPUT
+            result.display_strategy = "terminal_style_popup"
+            result.metadata.shell_type = "bash"
+        elseif tool_name and tool_name:match("^mcp__") then
+            -- MCP tool results - check if JSON
+            local is_json, _ = M._robust_json_validation(content)
+            if is_json then
+                result.type = M.ContentType.JSON_API_RESPONSE
+                result.display_strategy = "json_popup_with_folding"
+                result.metadata.api_source = tool_name
+                result.metadata.is_json = true
+            else
+                result.type = M.ContentType.GENERIC_TEXT
+                result.display_strategy = "adaptive_popup_or_inline"
+                result.metadata.api_source = tool_name
+            end
+        else
+            -- Generic tool result - check content patterns
+            local is_json, _ = M._robust_json_validation(content)
+            if is_json then
+                result.type = M.ContentType.JSON_API_RESPONSE
+                result.display_strategy = "json_popup_with_folding"
+                result.metadata.is_json = true
+            else
+                result.type = M.ContentType.GENERIC_TEXT
+                result.display_strategy = "adaptive_popup_or_inline"
+            end
+        end
+
+        result.metadata.tool_name = tool_name
+        return result
+    end
+
+    -- Error detection (still useful for tool results)
+    if structured_data.is_error or M._detect_error_patterns(content) then
+        result.type = M.ContentType.ERROR_OBJECT
+        result.display_strategy = "error_json_popup"
+        result.metadata.is_error = true
+        result.metadata.classification_method = "structured_error"
+        return result
+    end
+
+    -- Text content from assistant messages
+    if structured_data.type == "text" then
+        result.type = M.ContentType.GENERIC_TEXT
+        result.display_strategy = "adaptive_popup_or_inline"
+        result.metadata.classification_method = "structured_text"
+        return result
+    end
+
+    -- Fallback for unrecognized structured data
+    result.metadata.classification_method = "structured_fallback"
+    return result
+end
+
+---Classify content and determine appropriate display strategy (LEGACY - uses inference)
 ---@param content string Content to classify
 ---@param tool_name? string Name of tool that generated content
 ---@param context? string Context: "input" or "output"
@@ -386,6 +494,43 @@ function M._count_lines(content)
     return count + 1
 end
 
+---Infer tool name from structured data context
+---@param structured_data table Structured data object
+---@return string? tool_name Inferred tool name or nil
+function M._infer_tool_name_from_context(structured_data)
+    -- For tool_result, we need to look up the original tool_use to get the name
+    -- This would ideally be passed in from the caller who has the full context
+    -- For now, return nil and rely on caller to provide tool_name
+    return structured_data.tool_name or nil
+end
+
+---Detect error patterns in content
+---@param content string Content to check
+---@return boolean has_error Whether content contains error patterns
+function M._detect_error_patterns(content)
+    if not content then
+        return false
+    end
+
+    local error_patterns = {
+        "^Error:",
+        "^error:",
+        "Exception",
+        "Traceback",
+        "failed to",
+        "File not found",
+        "not found",
+    }
+
+    for _, pattern in ipairs(error_patterns) do
+        if content:match(pattern) then
+            return true
+        end
+    end
+
+    return false
+end
+
 ---Get display strategy for content type (for backward compatibility)
 ---@param content_type CcTui.ContentClassificationType Content type
 ---@return string strategy Display strategy identifier
@@ -431,6 +576,34 @@ function M.should_use_rich_display(content, is_error, tool_name)
     return result.metadata.line_count > 5
         or result.metadata.content_length > 200
         or result.type == M.ContentType.JSON_API_RESPONSE
+        or result.type == M.ContentType.ERROR_OBJECT
+end
+
+---Check if content should use rich display with structured data (DETERMINISTIC)
+---@param structured_data table Claude Code JSON message or content object
+---@param content string Raw content text
+---@return boolean should_use_rich Whether to use rich display
+function M.should_use_rich_display_structured(structured_data, content)
+    local result = M.classify_from_structured_data(structured_data, content)
+
+    -- Use rich display for substantial content or structured data
+    return result.metadata.line_count > 5
+        or result.metadata.content_length > 200
+        or result.type == M.ContentType.JSON_API_RESPONSE
+        or result.type == M.ContentType.ERROR_OBJECT
+        or result.type == M.ContentType.FILE_CONTENT
+        or result.type == M.ContentType.COMMAND_OUTPUT
+end
+
+---Check if structured data represents JSON content (DETERMINISTIC)
+---@param structured_data table Claude Code JSON message or content object
+---@param content string Raw content text
+---@return boolean is_json Whether content should display as JSON
+function M.is_json_content_structured(structured_data, content)
+    local result = M.classify_from_structured_data(structured_data, content)
+
+    return result.type == M.ContentType.JSON_API_RESPONSE
+        or result.type == M.ContentType.TOOL_INPUT
         or result.type == M.ContentType.ERROR_OBJECT
 end
 

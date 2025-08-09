@@ -245,7 +245,7 @@ function M.create_result_node_from_content(tool_use_id, content, create_text_nod
 
     -- Add formatted content as children based on tool type and content length
     if result_text and result_text ~= "" then
-        M.add_formatted_result_children(node, result_text, tool_name, create_text_node)
+        M.add_formatted_result_children(node, result_text, tool_name, create_text_node, content)
     end
 
     return node
@@ -287,17 +287,26 @@ end
 ---Add formatted children to result node based on content type
 ---@param node CcTui.ResultNode Result node to add children to
 ---@param result_text string Full result text
----@param _ string Name of the tool (unused)
+---@param tool_name? string Name of the tool
 ---@param create_text_node function Function to create text nodes
+---@param structured_content? table Original structured content from Claude Code JSON
 ---@return nil
-function M.add_formatted_result_children(node, result_text, _, create_text_node)
+function M.add_formatted_result_children(node, result_text, _, create_text_node, structured_content)
     local line_count = M.count_result_lines(result_text)
 
     -- Hybrid approach: Only add children for very small content
     -- Large content will be handled by ContentRenderer popup windows
 
     -- Use rich display threshold logic (must match tree.lua logic)
-    local should_use_rich_display = M.should_use_rich_display_for_content(result_text, node.is_error)
+    local should_use_rich_display
+    if structured_content then
+        -- DETERMINISTIC classification using structured Claude Code JSON data
+        local ContentClassifier = require("cc-tui.utils.content_classifier")
+        should_use_rich_display = ContentClassifier.should_use_rich_display_structured(structured_content, result_text)
+    else
+        -- Fallback to legacy inference-based classification
+        should_use_rich_display = M.should_use_rich_display_for_content(result_text, node.is_error)
+    end
 
     if should_use_rich_display then
         -- Content will be displayed via ContentRenderer - no children needed

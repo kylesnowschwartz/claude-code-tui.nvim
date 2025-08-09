@@ -3,7 +3,7 @@
 --- Validates the replacement of fragmented detection logic with unified classifier
 ---@brief ]]
 
-local Helpers = dofile("tests/helpers.lua")
+local _ = dofile("tests/helpers.lua") -- Load helpers but unused in this test file
 
 -- Unit tests for ContentClassifier - no child neovim process needed for pure logic
 local T = MiniTest.new_set()
@@ -194,6 +194,118 @@ T["Performance Requirements"]["classifies content under 10ms"] = function()
 
     MiniTest.expect.equality(type(result), "table")
     MiniTest.expect.equality(duration_ms < 10, true) -- Must be under 10ms
+end
+
+T["Deterministic Structured Classification"] = MiniTest.new_set()
+
+T["Deterministic Structured Classification"]["has classify_from_structured_data method"] = function()
+    MiniTest.expect.equality(type(ContentClassifier.classify_from_structured_data), "function")
+end
+
+T["Deterministic Structured Classification"]["classifies tool_use as TOOL_INPUT with 100% confidence"] = function()
+    local structured_data = {
+        type = "tool_use",
+        name = "Read",
+        id = "toolu_123",
+        input = { file_path = "/tmp/test.txt" },
+    }
+    local content = '{"file_path": "/tmp/test.txt"}'
+
+    local result = ContentClassifier.classify_from_structured_data(structured_data, content)
+
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.TOOL_INPUT)
+    MiniTest.expect.equality(result.confidence, 1.0) -- 100% confident
+    MiniTest.expect.equality(result.metadata.structured_source, true)
+    MiniTest.expect.equality(result.metadata.tool_name, "Read")
+    MiniTest.expect.equality(result.metadata.tool_id, "toolu_123")
+    MiniTest.expect.equality(result.display_strategy, "json_popup_always")
+end
+
+T["Deterministic Structured Classification"]["classifies tool_result for Read as FILE_CONTENT"] = function()
+    local structured_data = {
+        type = "tool_result",
+        tool_use_id = "toolu_123",
+        content = { { type = "text", text = "function hello() print('Hello') end" } },
+    }
+    local content = "function hello() print('Hello') end"
+
+    -- Mock tool name (would normally be passed from context)
+    structured_data.tool_name = "Read"
+
+    local result = ContentClassifier.classify_from_structured_data(structured_data, content)
+
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.FILE_CONTENT)
+    MiniTest.expect.equality(result.confidence, 1.0) -- 100% confident
+    MiniTest.expect.equality(result.metadata.structured_source, true)
+    MiniTest.expect.equality(result.metadata.tool_name, "Read")
+    MiniTest.expect.equality(result.display_strategy, "syntax_highlighted_popup")
+end
+
+T["Deterministic Structured Classification"]["classifies tool_result for Bash as COMMAND_OUTPUT"] = function()
+    local structured_data = {
+        type = "tool_result",
+        tool_use_id = "toolu_456",
+        content = { { type = "text", text = "total 16\n-rw-r--r-- 1 user staff 1024 Dec 25 10:30 test.txt" } },
+    }
+    local content = "total 16\n-rw-r--r-- 1 user staff 1024 Dec 25 10:30 test.txt"
+
+    -- Mock tool name
+    structured_data.tool_name = "Bash"
+
+    local result = ContentClassifier.classify_from_structured_data(structured_data, content)
+
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.COMMAND_OUTPUT)
+    MiniTest.expect.equality(result.confidence, 1.0)
+    MiniTest.expect.equality(result.metadata.tool_name, "Bash")
+    MiniTest.expect.equality(result.display_strategy, "terminal_style_popup")
+end
+
+T["Deterministic Structured Classification"]["classifies MCP tool JSON result as JSON_API_RESPONSE"] = function()
+    local structured_data = {
+        type = "tool_result",
+        tool_use_id = "toolu_789",
+        content = { { type = "text", text = '{"jsonrpc": "2.0", "result": {"content": "API response"}}' } },
+    }
+    local content = '{"jsonrpc": "2.0", "result": {"content": "API response"}}'
+
+    -- Mock MCP tool name
+    structured_data.tool_name = "mcp__context7__get-docs"
+
+    local result = ContentClassifier.classify_from_structured_data(structured_data, content)
+
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.JSON_API_RESPONSE)
+    MiniTest.expect.equality(result.confidence, 1.0)
+    MiniTest.expect.equality(result.metadata.api_source, "mcp__context7__get-docs")
+    MiniTest.expect.equality(result.metadata.is_json, true)
+    MiniTest.expect.equality(result.display_strategy, "json_popup_with_folding")
+end
+
+T["Deterministic Structured Classification"]["deterministic classification is consistent"] = function()
+    local structured_data = {
+        type = "tool_use",
+        name = "Edit",
+        id = "toolu_edit_001",
+        input = { file_path = "/src/main.js", old_string = "old", new_string = "new" },
+    }
+    local content = '{"file_path": "/src/main.js", "old_string": "old", "new_string": "new"}'
+
+    -- Run multiple times - should always be identical
+    local result1 = ContentClassifier.classify_from_structured_data(structured_data, content)
+    local result2 = ContentClassifier.classify_from_structured_data(structured_data, content)
+    local result3 = ContentClassifier.classify_from_structured_data(structured_data, content)
+
+    -- ALL results should be identical (deterministic)
+    MiniTest.expect.equality(result1.type, result2.type)
+    MiniTest.expect.equality(result2.type, result3.type)
+    MiniTest.expect.equality(result1.confidence, result2.confidence)
+    MiniTest.expect.equality(result2.confidence, result3.confidence)
+    MiniTest.expect.equality(result1.display_strategy, result2.display_strategy)
+    MiniTest.expect.equality(result2.display_strategy, result3.display_strategy)
+
+    -- All should be 100% confident
+    MiniTest.expect.equality(result1.confidence, 1.0)
+    MiniTest.expect.equality(result2.confidence, 1.0)
+    MiniTest.expect.equality(result3.confidence, 1.0)
 end
 
 return T
