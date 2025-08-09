@@ -38,6 +38,12 @@ if #vim.api.nvim_list_uis() == 0 then
                         table.insert(new_lines, line)
                     end
                 end
+
+                -- Ensure the file ends with a newline by adding empty line if needed
+                if #new_lines > 0 and new_lines[#new_lines] ~= "" then
+                    table.insert(new_lines, "")
+                end
+
                 return new_lines
             end,
         },
