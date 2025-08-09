@@ -314,16 +314,25 @@ function M.reveal_node(tree, node_id)
     end
 
     -- Expand all parent nodes
-    local parent = node:get_parent()
-    while parent do
+    local parent_id = node:get_parent_id()
+    while parent_id do
+        local parent = tree:get_node(parent_id)
+        if not parent then
+            break
+        end
+
         if not parent:is_expanded() then
             parent:expand()
         end
-        parent = parent:get_parent()
+
+        parent_id = parent:get_parent_id()
     end
 
-    -- Focus the target node
-    tree:focus_node(node_id)
+    -- Focus the target node by setting cursor position
+    local node_obj, start_line, _ = tree:get_node(node_id)
+    if node_obj and start_line then
+        vim.api.nvim_win_set_cursor(0, { start_line, 0 })
+    end
     tree:render()
 
     return true
@@ -394,7 +403,7 @@ function M.toggle_result_node(node, tree)
 
     if should_use_rich_display then
         -- Use rich content display via ContentRenderer
-        local parent_tool = M.find_parent_tool(node)
+        local parent_tool = M.find_parent_tool(tree, node)
         local tool_name = parent_tool and parent_tool.tool_name
 
         local content_window = ContentRenderer.render_content(
@@ -457,19 +466,27 @@ function M.should_use_rich_display(result_data)
 end
 
 ---Find the parent tool node for a result node
+---@param tree NuiTree Tree instance
 ---@param result_node NuiTree.Node Result node
 ---@return CcTui.ToolNode? tool_data Parent tool data or nil
-function M.find_parent_tool(result_node)
+function M.find_parent_tool(tree, result_node)
     vim.validate({
+        tree = { tree, "table" },
         result_node = { result_node, "table" },
     })
 
-    local parent = result_node:get_parent()
-    while parent do
+    local parent_id = result_node:get_parent_id()
+    while parent_id do
+        local parent = tree:get_node(parent_id)
+        if not parent then
+            break
+        end
+
         if parent.data and parent.data.type == "tool" then
             return parent.data
         end
-        parent = parent:get_parent()
+
+        parent_id = parent:get_parent_id()
     end
 
     return nil
