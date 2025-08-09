@@ -17,6 +17,7 @@ M.ContentType = {
     -- Context-aware display
     FILE_CONTENT = "file_content", -- Read tool results
     COMMAND_OUTPUT = "command_output", -- Bash/shell output
+    ERROR_CONTENT = "error_content", -- Error content from tools (Phase 2)
 
     -- Fallback
     GENERIC_TEXT = "generic_text", -- Plain text content
@@ -605,6 +606,243 @@ function M.is_json_content_structured(structured_data, content)
     return result.type == M.ContentType.JSON_API_RESPONSE
         or result.type == M.ContentType.TOOL_INPUT
         or result.type == M.ContentType.ERROR_OBJECT
+end
+
+---Phase 2: Enhanced ContentClassifier API with full Claude Code stream context
+---Classify content using full stream context for perfect display decisions
+---@param structured_data table Claude Code content block (tool_use, tool_result, etc.)
+---@param content string Raw content text to classify
+---@param stream_context table Enhanced context from Claude Code streaming
+---@return table classification Classification result with enhanced metadata and display strategy
+function M.classify_with_stream_context(structured_data, content, stream_context)
+    vim.validate({
+        structured_data = { structured_data, "table" },
+        content = { content, "string" },
+        stream_context = { stream_context, "table" },
+    })
+
+    -- Start with base deterministic classification
+    local result = M.classify_from_structured_data(structured_data, content)
+
+    -- Enhance with stream context for perfect display decisions
+    result.metadata.enhanced_context = true
+    result.metadata.session_id = stream_context.session_id
+    result.metadata.message_type = stream_context.message_type
+
+    -- Tool Input Enhancement: ALWAYS popup for tool inputs
+    if stream_context.is_tool_input then
+        result.display_strategy = "json_popup_always"
+        result.force_popup = true
+
+        -- File type detection from input parameters
+        if stream_context.original_input and stream_context.original_input.file_path then
+            local file_path = stream_context.original_input.file_path
+            local extension = file_path:match("%.([^.]+)$")
+            if extension then
+                result.metadata.file_type = extension:lower()
+            end
+        end
+
+        return result
+    end
+
+    -- Tool Result Enhancement: Context-aware display strategies
+    if stream_context.is_tool_result then
+        local tool_name = stream_context.tool_name or structured_data.tool_name
+
+        if tool_name == "Read" then
+            -- File content: inline if small, popup with syntax if large
+            if result.metadata.line_count <= 5 and result.metadata.content_length <= 200 then
+                result.display_strategy = "inline_with_syntax"
+                result.force_popup = false
+
+                -- Detect file type from original input
+                if stream_context.original_input and stream_context.original_input.file_path then
+                    local file_path = stream_context.original_input.file_path
+                    local extension = file_path:match("%.([^.]+)$")
+                    if extension then
+                        result.metadata.file_type = extension:lower()
+                        -- Map common extensions to syntax languages
+                        local syntax_map = {
+                            js = "javascript",
+                            tsx = "typescript",
+                            ts = "typescript",
+                            py = "python",
+                            rb = "ruby",
+                            go = "go",
+                            rs = "rust",
+                            html = "html",
+                            css = "css",
+                            json = "json",
+                            yaml = "yaml",
+                            md = "markdown",
+                            sh = "bash",
+                            env = "env",
+                        }
+                        result.metadata.syntax_language = syntax_map[extension:lower()] or extension:lower()
+                    end
+                end
+            else
+                result.display_strategy = "syntax_highlighted_popup"
+                result.force_popup = true
+
+                -- Enhanced syntax detection for large files
+                if stream_context.original_input and stream_context.original_input.file_path then
+                    local file_path = stream_context.original_input.file_path
+                    local extension = file_path:match("%.([^.]+)$")
+                    if extension then
+                        local syntax_map = {
+                            js = "javascript",
+                            jsx = "javascript",
+                            ts = "typescript",
+                            tsx = "typescript",
+                            py = "python",
+                            rb = "ruby",
+                            go = "go",
+                            rs = "rust",
+                            html = "html",
+                            css = "css",
+                            scss = "scss",
+                            sass = "sass",
+                            json = "json",
+                            yaml = "yaml",
+                            yml = "yaml",
+                            toml = "toml",
+                            md = "markdown",
+                            sh = "bash",
+                            bash = "bash",
+                            zsh = "bash",
+                            lua = "lua",
+                            vim = "vim",
+                            sql = "sql",
+                        }
+                        result.metadata.syntax_language = syntax_map[extension:lower()] or "text"
+                    end
+                end
+            end
+        elseif tool_name == "Bash" then
+            -- Bash output: ALWAYS popup with terminal styling
+            result.display_strategy = "terminal_style_popup"
+            result.force_popup = true
+            result.metadata.styling = "terminal"
+
+            if stream_context.original_input and stream_context.original_input.command then
+                result.metadata.command = stream_context.original_input.command
+            end
+        elseif tool_name and tool_name:match("^mcp__") then
+            -- MCP tools: JSON popup with folding
+            result.display_strategy = "json_popup_with_folding"
+            result.force_popup = true
+            result.metadata.api_source = tool_name
+            result.metadata.has_nested_structure = true
+            result.metadata.is_mcp_tool = true
+        else
+            -- Generic tools: context-based decisions
+            if result.metadata.line_count > 5 or result.metadata.content_length > 200 then
+                result.display_strategy = "generic_popup"
+                result.force_popup = true
+            else
+                result.display_strategy = "inline_simple"
+                result.force_popup = false
+            end
+        end
+    end
+
+    -- Error Enhancement: Always popup with error styling
+    if stream_context.is_error or structured_data.is_error then
+        result.type = M.ContentType.ERROR_CONTENT
+        result.display_strategy = "error_popup_highlighted"
+        result.force_popup = true
+        result.metadata.styling = "error_highlight"
+
+        -- Enhanced error type detection
+        if content:match("ENOENT") or content:match("no such file") then
+            result.metadata.error_type = "file_not_found"
+        elseif content:match("permission denied") or content:match("EACCES") then
+            result.metadata.error_type = "permission_denied"
+        elseif content:match("command not found") then
+            result.metadata.error_type = "command_not_found"
+        else
+            result.metadata.error_type = "generic_error"
+        end
+    end
+
+    return result
+end
+
+---Phase 2: Enhanced rich display logic with stream context
+---@param content string Content to check
+---@param stream_context table Enhanced context from Claude Code streaming
+---@return table decision Display decision with strategy and popup requirement
+function M.should_use_rich_display_with_context(content, stream_context)
+    vim.validate({
+        content = { content, "string" },
+        stream_context = { stream_context, "table" },
+    })
+
+    local decision = {
+        use_popup = false,
+        display_strategy = "inline_simple",
+        force_popup = false,
+        metadata = {},
+    }
+
+    local tool_name = stream_context.tool_name
+    local line_count = select(2, content:gsub("\n", "\n")) + 1
+    local char_count = #content
+
+    -- Tool Input: Always popup
+    if stream_context.is_tool_input then
+        decision.use_popup = true
+        decision.display_strategy = "json_popup_always"
+        decision.force_popup = true
+        return decision
+    end
+
+    -- Tool-specific logic
+    if tool_name == "Read" then
+        -- File content: size-based decision but with syntax highlighting
+        if line_count <= 5 and char_count <= 200 then
+            decision.use_popup = false
+            decision.display_strategy = "inline_with_syntax"
+        else
+            decision.use_popup = true
+            decision.display_strategy = "syntax_highlighted_popup"
+            decision.force_popup = true
+        end
+    elseif tool_name == "Bash" then
+        -- Bash: Always popup for terminal styling consistency
+        decision.use_popup = true
+        decision.display_strategy = "terminal_style_popup"
+        decision.force_popup = true
+    elseif tool_name and tool_name:match("^mcp__") then
+        -- MCP: Always popup with JSON folding
+        decision.use_popup = true
+        decision.display_strategy = "json_popup_with_folding"
+        decision.force_popup = true
+    else
+        -- Generic: size-based decision
+        if line_count > 5 or char_count > 200 then
+            decision.use_popup = true
+            decision.display_strategy = "generic_popup"
+        else
+            decision.use_popup = false
+            decision.display_strategy = "inline_simple"
+        end
+    end
+
+    -- Error override: Always popup
+    if stream_context.is_error then
+        decision.use_popup = true
+        decision.display_strategy = "error_popup_highlighted"
+        decision.force_popup = true
+    end
+
+    decision.metadata.line_count = line_count
+    decision.metadata.char_count = char_count
+    decision.metadata.tool_name = tool_name
+
+    return decision
 end
 
 return M
