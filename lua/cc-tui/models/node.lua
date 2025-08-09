@@ -88,9 +88,9 @@ function M.create_message_node(message_id, role, preview)
     preview = preview or ""
 
     -- Ensure single line and truncate if needed
-    preview = preview:gsub("[\n\r]", " ")
-    if #preview > 60 then
-        preview = preview:sub(1, 57) .. "..."
+    preview = preview:gsub("[\n\r]", " "):gsub("%s+", " ")
+    if #preview > 80 then
+        preview = preview:sub(1, 77) .. "..."
     end
 
     return {

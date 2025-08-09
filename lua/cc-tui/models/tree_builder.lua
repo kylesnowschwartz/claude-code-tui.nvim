@@ -143,12 +143,32 @@ function M.create_message_node_from_message(message, create_text_node)
     -- Extract text preview (ensure single line)
     local preview = ""
     if message.message.content then
+        -- Look for text content first
         for _, content in ipairs(message.message.content) do
             if content.type == "text" and content.text then
-                -- Take only the first line and truncate if needed
-                local first_line = content.text:match("^[^\n]*")
-                preview = first_line or ""
+                -- Take meaningful text, cleaned up
+                local text = content.text:gsub("[\n\r]", " "):gsub("%s+", " ")
+                preview = text
                 break
+            end
+        end
+
+        -- If no text found but has tools, create a tool summary
+        if preview == "" then
+            local tool_count = 0
+            local tool_names = {}
+            for _, content in ipairs(message.message.content) do
+                if content.type == "tool_use" then
+                    tool_count = tool_count + 1
+                    table.insert(tool_names, content.name)
+                end
+            end
+            if tool_count > 0 then
+                if tool_count == 1 then
+                    preview = string.format("Used %s", tool_names[1])
+                else
+                    preview = string.format("Used %d tools: %s", tool_count, table.concat(tool_names, ", "))
+                end
             end
         end
     end
@@ -168,11 +188,13 @@ function M.create_message_node_from_message(message, create_text_node)
         if not has_tools then
             for _, content in ipairs(message.message.content) do
                 if content.type == "text" and content.text then
-                    -- Split text into lines for display
-                    for line in content.text:gmatch("[^\n]+") do
-                        local text_node = create_text_node(line, node.id)
-                        table.insert(node.children, text_node)
+                    -- Create a single text node with full content for non-tool messages
+                    local full_text = content.text:gsub("\n", " "):gsub("%s+", " ")
+                    if #full_text > 100 then
+                        full_text = full_text:sub(1, 97) .. "..."
                     end
+                    local text_node = create_text_node(full_text, node.id)
+                    table.insert(node.children, text_node)
                 end
             end
         end
@@ -214,12 +236,14 @@ function M.create_result_node_from_content(tool_use_id, content, create_text_nod
 
     local node = Node.create_result_node(tool_use_id, result_text, is_error)
 
-    -- Add content lines as children
+    -- Add content as a single child (truncated if too long)
     if result_text and result_text ~= "" then
-        for line in result_text:gmatch("[^\n]+") do
-            local text_node = create_text_node(line, node.id)
-            table.insert(node.children, text_node)
+        local display_text = result_text:gsub("\n", " "):gsub("%s+", " ")
+        if #display_text > 200 then
+            display_text = display_text:sub(1, 197) .. "..."
         end
+        local text_node = create_text_node(display_text, node.id)
+        table.insert(node.children, text_node)
     end
 
     return node
