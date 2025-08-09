@@ -5,7 +5,7 @@
 
 local Parser = require("cc-tui.parser.stream")
 local Popup = require("nui.popup")
-local TestData = require("cc-tui.parser.test_data")
+local StaticProvider = require("cc-tui.providers.static")
 local Tree = require("cc-tui.ui.tree")
 local TreeBuilder = require("cc-tui.models.tree_builder")
 local log = require("cc-tui.util.log")
@@ -46,12 +46,31 @@ function M.toggle(scope)
     M.enable(scope)
 end
 
----Load and parse test data
+---Load and parse test data using StaticProvider
 ---@return CcTui.BaseNode? root Root node or nil
 ---@return string? error Error message if failed
 local function load_test_data()
-    -- Load sample lines
-    local lines = TestData.load_sample_lines(500)
+    local provider = StaticProvider:new({ limit = 500 })
+    local lines = {}
+    local error_message = nil
+
+    -- Set up callbacks to collect data
+    provider:register_callback("on_data", function(line)
+        table.insert(lines, line)
+    end)
+
+    provider:register_callback("on_error", function(err)
+        error_message = err
+    end)
+
+    -- Start provider (synchronous for StaticProvider)
+    provider:start()
+
+    -- Check for errors
+    if error_message then
+        return nil, error_message
+    end
+
     if #lines == 0 then
         return nil, "Failed to load test data"
     end
@@ -277,6 +296,14 @@ function M.refresh()
                 collapsed = "▶",
                 empty = " ",
             },
+            colors = {
+                session = "CcTuiSession",
+                message = "CcTuiMessage",
+                tool = "CcTuiTool",
+                result = "CcTuiResult",
+                text = "CcTuiText",
+                error = "CcTuiError",
+            },
         })
     end
 
@@ -319,6 +346,14 @@ function M.process_line(line)
                 expanded = "▼",
                 collapsed = "▶",
                 empty = " ",
+            },
+            colors = {
+                session = "CcTuiSession",
+                message = "CcTuiMessage",
+                tool = "CcTuiTool",
+                result = "CcTuiResult",
+                text = "CcTuiText",
+                error = "CcTuiError",
             },
         })
     end
