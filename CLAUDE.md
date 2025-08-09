@@ -77,6 +77,41 @@ Uses `mini.test` with:
 
 These libraries are useful for creating rich TUI interfaces in Neovim plugins and provide a solid foundation for UI development.
 
+## UI Component Implementation Guidelines
+
+### When Implementing UI Components
+Always use the nui.nvim component framework instead of raw Neovim buffer/window APIs. The plugin should leverage these existing UI libraries for all interface elements.
+
+### Basic UI Component Pattern
+1. **Import NUI Components**: Use `require()` to import needed components (Split, Popup, Input, etc.)
+2. **Store Component References**: Track component instances in plugin state for proper lifecycle management
+3. **Mount/Unmount Lifecycle**: Use component `:mount()` and `:unmount()` methods in enable/disable functions
+4. **Event Handling**: Set up component event handlers for user interactions
+
+### Component Selection Guidelines
+- **Split**: Use for main buffer windows, sidebars, or panel-style interfaces
+- **Popup**: Use for dialogs, modals, or floating information displays
+- **Input**: Use for text input forms and prompts
+- **Menu**: Use for selection lists and option menus
+- **Tree**: Use for hierarchical data display
+- **Table**: Use for tabular data presentation
+
+### Documentation References
+Consult the comprehensive NUI documentation for implementation details and examples:
+
+- **Component Documentation**: `/Users/kyle/Code/nui.nvim/lua/nui/{component}/README.md`
+  - `split/README.md` - Window splitting (sidebars, panels)
+  - `popup/README.md` - Floating windows and modals  
+  - `input/README.md` - Text input fields
+  - `menu/README.md` - Selection menus
+  - `tree/README.md` - Hierarchical data display
+  - `table/README.md` - Tabular data presentation
+
+- **Additional Resources**: 
+  - [NUI.nvim Wiki](https://github.com/MunifTanjim/nui.nvim/wiki) for guides and tips
+  - Each component README includes comprehensive options and examples
+  - All components follow the same mount/unmount lifecycle pattern
+
 ## Important Notes
 
 - This is a template repository - all placeholder names (YourPluginName, your-plugin-name) need to be replaced
