@@ -21,14 +21,10 @@ local defaults = vim.deepcopy(CcTui.options)
 ---
 ---@private
 function CcTui.defaults(options)
-    CcTui.options =
-        vim.deepcopy(vim.tbl_deep_extend("keep", options or {}, defaults or {}))
+    CcTui.options = vim.deepcopy(vim.tbl_deep_extend("keep", options or {}, defaults or {}))
 
     -- let your user know that they provided a wrong value, this is reported when your plugin is executed.
-    assert(
-        type(CcTui.options.debug) == "boolean",
-        "`debug` must be a boolean (`true` or `false`)."
-    )
+    assert(type(CcTui.options.debug) == "boolean", "`debug` must be a boolean (`true` or `false`).")
 
     return CcTui.options
 end
