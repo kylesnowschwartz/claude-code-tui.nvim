@@ -43,4 +43,1473 @@ Usage ~
 `require("cc-tui").setup()` (add `{}` with your |CcTui.options| table)
 
 
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Keybinding configuration for CC-TUI
+Manages global and buffer-local keymaps
+]]
+
+------------------------------------------------------------------------------
+                                                                             *M*
+                                      `M`
+Class ~
+{CcTui.Keymaps}
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.KeymapConfig}
+Fields ~
+{global} `(table<string, string|function>)` Global keymaps
+{tree} `(table<string, string|function>)` Tree-specific keymaps
+
+------------------------------------------------------------------------------
+                                                                *default_config*
+                                `default_config`
+keymap configuration
+Type ~
+`(CcTui.KeymapConfig)`
+
+------------------------------------------------------------------------------
+                                                                        *config*
+                                    `config`
+configuration
+Type ~
+`(CcTui.KeymapConfig)`
+
+------------------------------------------------------------------------------
+                                                              *M.setup_global()*
+                    `M.setup_global`({keymaps}, {handlers})
+global keymaps
+Parameters ~
+{keymaps} `(table<string, string|function>)` Keymap table
+{handlers} `(table<string, function>)` Handler functions
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                         *M.setup_tree_buffer()*
+             `M.setup_tree_buffer`({bufnr}, {keymaps}, {handlers})
+buffer-local keymaps for tree
+Parameters ~
+{bufnr} `(number)` Buffer number
+{keymaps} `(table<string, string|function>)` Keymap table
+{handlers} `(table<string, function>)` Handler functions
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                              *M.merge_config()*
+                        `M.merge_config`({user_config})
+user configuration with defaults
+Parameters ~
+{user_config} `(optional)` `(CcTui.KeymapConfig)` User configuration
+Return ~
+`(CcTui.KeymapConfig)` merged Merged configuration
+
+------------------------------------------------------------------------------
+                                                                *M.get_config()*
+                                `M.get_config`()
+current configuration
+Return ~
+`(CcTui.KeymapConfig)` config
+
+------------------------------------------------------------------------------
+                                                             *M.get_help_text()*
+                        `M.get_help_text`({keymap_type})
+help text for keybindings
+Parameters ~
+{keymap_type} "`(global)`"|"tree" Type of keymaps to show
+Return ~
+`(string[])` lines Help text lines
+
+------------------------------------------------------------------------------
+                                                                 *M.show_help()*
+                          `M.show_help`({keymap_type})
+help window for keybindings
+Parameters ~
+{keymap_type} `(optional)` "`(global)`"|"tree" Type of keymaps to show (default: "tree")
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                                 *M.clear_all()*
+                                `M.clear_all`()
+all CC-TUI keymaps
+Return ~
+`(nil)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Main module for CC-TUI
+Manages the plugin's core functionality and UI state
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.Main}
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.MainState}
+Fields ~
+{popup} `(NuiPopup?)` Main popup window
+{tree} `(NuiTree?)` Active tree component
+{tree_data} `(CcTui.BaseNode?)` Tree data structure
+{messages} `(CcTui.Message[])` Parsed messages
+{streaming_provider} `(CcTui.StreamProvider?)` Active streaming provider
+
+------------------------------------------------------------------------------
+                                                                    *main_state*
+                                  `main_state`
+state
+Type ~
+`(CcTui.MainState)`
+
+------------------------------------------------------------------------------
+                                                              *load_test_data()*
+                               `load_test_data`()
+and parse test data using StaticProvider
+Return ~
+`(CcTui.BaseNode)` `(optional)` root Root node or nil
+Return ~
+`(string)` `(optional)` error Error message if failed
+
+------------------------------------------------------------------------------
+                                                                   *M.refresh()*
+                                 `M.refresh`()
+the tree with new data
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                              *M.process_line()*
+                            `M.process_line`({line})
+a new JSONL line (for streaming support)
+Parameters ~
+{line} `(string)` JSONL line to process
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                           *M.start_streaming()*
+                         `M.start_streaming`({config})
+streaming from Claude CLI
+Parameters ~
+{config} `(optional)` `(table)` StreamProvider configuration {command, args, timeout}
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                            *M.stop_streaming()*
+                              `M.stop_streaming`()
+active streaming
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                                 *M.get_state()*
+                                `M.get_state`()
+current state for debugging
+Return ~
+`(CcTui.MainState)` state
+
+
+==============================================================================
+------------------------------------------------------------------------------
+                                                                           *log*
+                                     `log`
+[[
+Global state management for CC-TUI plugin
+Handles enabled/disabled state and UI component lifecycle
+]]
+
+------------------------------------------------------------------------------
+                                                                         *state*
+                                    `state`
+Class ~
+{CcTui.State}
+Fields ~
+{enabled} `(boolean)` Whether CC-TUI is currently active
+{ui_component} `(table|nil)` Currently active UI component reference
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+EventBridge for mapping Claude CLI JSON events to internal message format
+Handles conversion between Claude CLI output and cc-tui internal structures
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.Bridge.EventBridge}
+
+------------------------------------------------------------------------------
+                                                            *M.is_valid_event()*
+                          `M.is_valid_event`({event})
+if an event has the required structure
+Parameters ~
+{event} `(table)` Event object to validate
+Return ~
+`(boolean)` valid True if event is valid
+
+------------------------------------------------------------------------------
+                                                                 *M.map_event()*
+                           `M.map_event`({cli_event})
+Claude CLI event to internal message format
+Parameters ~
+{cli_event} `(table)` Claude CLI JSON event
+Return ~
+`(CcTui.Message)` `(optional)` message Mapped internal message or nil if invalid
+
+------------------------------------------------------------------------------
+                                                         *M._map_system_event()*
+                         `M._map_system_event`({event})
+system events (init, etc.)
+Parameters ~
+{event} `(table)` System event
+Return ~
+`(CcTui.Message)` message Mapped system message
+
+------------------------------------------------------------------------------
+                                                      *M._map_assistant_event()*
+                       `M._map_assistant_event`({event})
+assistant message events
+Parameters ~
+{event} `(table)` Assistant event
+Return ~
+`(CcTui.Message)` message Mapped assistant message
+
+------------------------------------------------------------------------------
+                                                           *M._map_user_event()*
+                          `M._map_user_event`({event})
+user message events
+Parameters ~
+{event} `(table)` User event
+Return ~
+`(CcTui.Message)` message Mapped user message
+
+------------------------------------------------------------------------------
+                                                         *M._map_result_event()*
+                         `M._map_result_event`({event})
+result events (success/error summaries)
+Parameters ~
+{event} `(table)` Result event
+Return ~
+`(CcTui.Message)` message Mapped result message
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Node type definitions for CC-TUI tree structure
+Defines the different types of nodes in the collapsible tree
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.Models.Node}
+
+------------------------------------------------------------------------------
+                                                                    *M.NodeType*
+                                  `M.NodeType`
+CcTui.NodeType
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.BaseNode}
+Fields ~
+{id} `(string)` Unique node identifier
+{type} `(CcTui.NodeType)` Node type
+{text} `(string)` Display text
+{children} `(CcTui.BaseNode[])` Child nodes
+{expanded} `(boolean)` Whether node is expanded
+{data} `(table)` Additional node data
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.SessionNode} : CcTui.BaseNode
+Fields ~
+{session_id} `(string)` Session identifier
+{timestamp} `(optional)` `(string)` Session start time
+{model} `(optional)` `(string)` Model used
+{cwd} `(optional)` `(string)` Working directory
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.MessageNode} : CcTui.BaseNode
+Fields ~
+{message_id} `(string)` Message identifier
+{role} "`(assistant)`"|"user" Message role
+{preview} `(string)` Text preview
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.ToolNode} : CcTui.BaseNode
+Fields ~
+{tool_id} `(string)` Tool use identifier
+{tool_name} `(string)` Tool name
+{tool_input} `(table)` Tool input parameters
+{has_result} `(boolean)` Whether tool has a result
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.ResultNode} : CcTui.BaseNode
+Fields ~
+{tool_use_id} `(string)` Reference to tool use
+{content} `(any)` Result content
+{is_error} `(boolean)` Whether result is an error
+
+------------------------------------------------------------------------------
+                                                       *M.create_session_node()*
+                 `M.create_session_node`({session_id}, {data})
+a session node
+Parameters ~
+{session_id} `(string)` Session identifier
+{data} `(optional)` `(table)` Additional session data
+Return ~
+`(CcTui.SessionNode)` node
+
+------------------------------------------------------------------------------
+                                                       *M.create_message_node()*
+            `M.create_message_node`({message_id}, {role}, {preview})
+a message node
+Parameters ~
+{message_id} `(string)` Message identifier
+{role} "`(assistant)`"|"user" Message role
+{preview} `(optional)` `(string)` Text preview
+Return ~
+`(CcTui.MessageNode)` node
+
+------------------------------------------------------------------------------
+                                                          *M.create_tool_node()*
+           `M.create_tool_node`({tool_id}, {tool_name}, {tool_input})
+a tool node
+Parameters ~
+{tool_id} `(string)` Tool use identifier
+{tool_name} `(string)` Tool name
+{tool_input} `(optional)` `(table)` Tool input parameters
+Return ~
+`(CcTui.ToolNode)` node
+
+------------------------------------------------------------------------------
+                                                        *M.create_result_node()*
+  `M.create_result_node`({tool_use_id}, {content}, {is_error}, {preview_text})
+a result node
+Parameters ~
+{tool_use_id} `(string)` Reference to tool use
+{content} `(any)` Result content
+{is_error} `(optional)` `(boolean)` Whether result is an error
+{preview_text} `(optional)` `(string)` Custom preview text for the result
+Return ~
+`(CcTui.ResultNode)` node
+
+------------------------------------------------------------------------------
+                                                          *M.create_text_node()*
+       `M.create_text_node`({text}, {parent_id}, {counter}, {max_length})
+a text node for displaying content
+Parameters ~
+{text} `(string)` Text content
+{parent_id} `(optional)` `(string)` Parent node ID for unique identification
+{counter} `(optional)` `(number)` Unique counter to ensure ID uniqueness
+{max_length} `(optional)` `(number)` Maximum length before truncation (default: 120)
+Return ~
+`(CcTui.BaseNode)` node
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Tree builder for constructing hierarchical structure from messages
+Converts parsed Claude Code messages into a tree of nodes
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.Models.TreeBuilder}
+
+------------------------------------------------------------------------------
+                                                                *M.build_tree()*
+                   `M.build_tree`({messages}, {session_info})
+tree structure from parsed messages
+Parameters ~
+{messages} `(CcTui.Message[])` List of parsed messages
+{session_info} `(optional)` `(table)` Session information
+Return ~
+`(CcTui.SessionNode)` root Root session node with complete tree
+
+------------------------------------------------------------------------------
+                                          *M.create_message_node_from_message()*
+      `M.create_message_node_from_message`({message}, {create_text_node})
+message node from parsed message
+Parameters ~
+{message} `(CcTui.Message)` Parsed message
+{create_text_node} `(function)` Function to create unique text nodes
+Return ~
+`(CcTui.MessageNode)` `(optional)` node Message node or nil
+
+------------------------------------------------------------------------------
+                                           *M.create_result_node_from_content()*
+`M.create_result_node_from_content`({tool_use_id}, {content}, {create_text_node}, {tool_name})
+result node from tool result content
+Parameters ~
+{tool_use_id} `(string)` Tool use identifier
+{content} `(table)` Tool result content
+{create_text_node} `(function)` Function to create unique text nodes
+{tool_name} `(optional)` `(string)` Name of the tool that generated this result
+Return ~
+`(CcTui.ResultNode)` `(optional)` node Result node or nil
+
+------------------------------------------------------------------------------
+                                             *M.create_tool_aware_result_node()*
+`M.create_tool_aware_result_node`({tool_use_id}, {result_text}, {is_error}, {tool_name})
+tool-aware result node with appropriate preview
+Parameters ~
+{tool_use_id} `(string)` Tool use identifier
+{result_text} `(string)` Result content text
+{is_error} `(boolean)` Whether this is an error result
+{tool_name} `(optional)` `(string)` Name of the tool
+Return ~
+`(CcTui.ResultNode)` node Result node
+
+------------------------------------------------------------------------------
+                                             *M.add_formatted_result_children()*
+`M.add_formatted_result_children`({node}, {result_text}, {_}, {create_text_node})
+formatted children to result node based on content type
+Parameters ~
+{node} `(CcTui.ResultNode)` Result node to add children to
+{result_text} `(string)` Full result text
+{_} `(string)` Name of the tool (unused)
+{create_text_node} `(function)` Function to create text nodes
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                       *M.should_use_rich_display_for_content()*
+         `M.should_use_rich_display_for_content`({content}, {is_error})
+if content should use rich display (matches tree.lua logic)
+Parameters ~
+{content} `(string)` Content to check
+{is_error} `(optional)` `(boolean)` Whether content is an error
+Return ~
+`(boolean)` should_use_rich_display Whether ContentRenderer should handle this
+
+------------------------------------------------------------------------------
+                                                       *M.format_file_content()*
+         `M.format_file_content`({node}, {content}, {create_text_node})
+file content (Read tool results)
+Parameters ~
+{node} `(CcTui.ResultNode)` Result node
+{content} `(string)` File content
+{create_text_node} `(function)` Function to create text nodes
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                     *M.format_command_output()*
+        `M.format_command_output`({node}, {content}, {create_text_node})
+command output (Bash tool results)
+Parameters ~
+{node} `(CcTui.ResultNode)` Result node
+{content} `(string)` Command output
+{create_text_node} `(function)` Function to create text nodes
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                       *M.format_api_response()*
+         `M.format_api_response`({node}, {content}, {create_text_node})
+API response (MCP tool results)
+Parameters ~
+{node} `(CcTui.ResultNode)` Result node
+{content} `(string)` API response content
+{create_text_node} `(function)` Function to create text nodes
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                     *M.format_generic_output()*
+        `M.format_generic_output`({node}, {content}, {create_text_node})
+generic tool output
+Parameters ~
+{node} `(CcTui.ResultNode)` Result node
+{content} `(string)` Output content
+{create_text_node} `(function)` Function to create text nodes
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                        *M.count_result_lines()*
+                         `M.count_result_lines`({text})
+lines in result text
+Parameters ~
+{text} `(string)` Text to count
+Return ~
+`(number)` count Number of lines
+
+------------------------------------------------------------------------------
+                                                            *M.get_first_line()*
+                           `M.get_first_line`({text})
+first line of text
+Parameters ~
+{text} `(string)` Text to extract from
+Return ~
+`(string)` first_line First line of text
+
+------------------------------------------------------------------------------
+                                                    *M.split_text_into_chunks()*
+              `M.split_text_into_chunks`({text}, {max_chunk_size})
+long text into readable chunks at word boundaries
+Parameters ~
+{text} `(string)` Text to split
+{max_chunk_size} `(number)` Maximum size per chunk
+Return ~
+`(string[])` chunks Array of text chunks
+
+------------------------------------------------------------------------------
+                                                      *M.process_nested_tools()*
+              `M.process_nested_tools`({parent_node}, {messages})
+nested tools (for Task agents)
+Parameters ~
+{parent_node} `(CcTui.ToolNode)` Parent tool node
+{messages} `(CcTui.Message[])` All messages
+Return ~
+`(nil)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Semantic content parser for Claude Code output
+Analyzes and structures content for better readability and navigation
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.Parser.Content}
+
+------------------------------------------------------------------------------
+                                                                 *M.ContentType*
+                                `M.ContentType`
+CcTui.ContentType
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.ContentSegment}
+Fields ~
+{type} `(CcTui.ContentType)` Content type
+{content} `(string)` Raw content
+{metadata} `(table)` Additional information about the content
+{collapsible} `(boolean)` Whether this content should be collapsible
+{preview} `(string)` Short preview for collapsed state
+
+------------------------------------------------------------------------------
+                                                       *M.detect_content_type()*
+                        `M.detect_content_type`({text})
+content and detect its semantic type
+Parameters ~
+{text} `(string)` Text content to analyze
+Return ~
+`(CcTui.ContentType)` type Detected content type
+Return ~
+`(table)` metadata Additional metadata about the content
+
+------------------------------------------------------------------------------
+                                                           *M.is_json_content()*
+                          `M.is_json_content`({text})
+if content appears to be JSON
+Parameters ~
+{text} `(string)` Text to check
+Return ~
+`(boolean)` is_json Whether the text is JSON content
+
+------------------------------------------------------------------------------
+                                                             *M.is_code_block()*
+                           `M.is_code_block`({text})
+if content is a code block
+Parameters ~
+{text} `(string)` Text to check
+Return ~
+`(boolean)` is_code Whether the text is a code block
+
+------------------------------------------------------------------------------
+                                                           *M.is_list_content()*
+                          `M.is_list_content`({text})
+if content is a list
+Parameters ~
+{text} `(string)` Text to check
+Return ~
+`(boolean)` is_list Whether the text is a list
+
+------------------------------------------------------------------------------
+                                                          *M.is_title_section()*
+                          `M.is_title_section`({text})
+if content is a title section
+Parameters ~
+{text} `(string)` Text to check
+Return ~
+`(boolean)` is_title Whether the text starts with a title pattern
+
+------------------------------------------------------------------------------
+                                                          *M.is_error_content()*
+                          `M.is_error_content`({text})
+if content indicates an error
+Parameters ~
+{text} `(string)` Text to check
+Return ~
+`(boolean)` is_error Whether the text represents an error
+
+------------------------------------------------------------------------------
+                                                              *M.is_paragraph()*
+                            `M.is_paragraph`({text})
+if content is a substantial paragraph
+Parameters ~
+{text} `(string)` Text to check
+Return ~
+`(boolean)` is_paragraph Whether the text is a paragraph
+
+------------------------------------------------------------------------------
+                                                               *M.count_lines()*
+                            `M.count_lines`({text})
+lines in text
+Parameters ~
+{text} `(string)` Text to count
+Return ~
+`(number)` count Number of lines
+
+------------------------------------------------------------------------------
+                                                               *M.count_words()*
+                            `M.count_words`({text})
+words in text
+Parameters ~
+{text} `(string)` Text to count
+Return ~
+`(number)` count Number of words
+
+------------------------------------------------------------------------------
+                                                           *M.count_sentences()*
+                          `M.count_sentences`({text})
+sentences in text
+Parameters ~
+{text} `(string)` Text to count
+Return ~
+`(number)` count Number of sentences
+
+------------------------------------------------------------------------------
+                                                             *M.extract_title()*
+                           `M.extract_title`({text})
+title from title section
+Parameters ~
+{text} `(string)` Text containing title
+Return ~
+`(string)` title Extracted title
+
+------------------------------------------------------------------------------
+                                                           *M.detect_language()*
+                          `M.detect_language`({text})
+programming language from code content
+Parameters ~
+{text} `(string)` Code text
+Return ~
+`(string)` language Detected language
+
+------------------------------------------------------------------------------
+                                                        *M.extract_list_items()*
+                         `M.extract_list_items`({text})
+list items from list content
+Parameters ~
+{text} `(string)` List text
+Return ~
+`(string[])` items List items
+
+------------------------------------------------------------------------------
+                                                          *M.detect_list_type()*
+                          `M.detect_list_type`({text})
+list type (bullet or numbered)
+Parameters ~
+{text} `(string)` List text
+Return ~
+`(string)` type List type
+
+------------------------------------------------------------------------------
+                                                             *M.contains_urls()*
+                           `M.contains_urls`({text})
+if text contains URLs
+Parameters ~
+{text} `(string)` Text to check
+Return ~
+`(boolean)` has_urls Whether text contains URLs
+
+------------------------------------------------------------------------------
+                                                              *M.extract_urls()*
+                            `M.extract_urls`({text})
+URLs from text
+Parameters ~
+{text} `(string)` Text containing URLs
+Return ~
+`(string[])` urls Extracted URLs
+
+------------------------------------------------------------------------------
+                                                         *M.detect_error_type()*
+                         `M.detect_error_type`({text})
+error type from error content
+Parameters ~
+{text} `(string)` Error text
+Return ~
+`(string)` type Error type
+
+------------------------------------------------------------------------------
+                                                *M.parse_content_semantically()*
+     `M.parse_content_semantically`({text}, {parent_id}, {create_node_fn})
+content into semantic segments for tree display
+Parameters ~
+{text} `(string)` Raw text content
+{parent_id} `(string)` Parent node ID for unique identification
+{create_node_fn} `(function)` Function to create tree nodes
+Return ~
+`(table[])` nodes Array of semantic content nodes
+
+------------------------------------------------------------------------------
+                                              *M.split_into_semantic_segments()*
+                    `M.split_into_semantic_segments`({text})
+text into semantic segments based on content type
+Parameters ~
+{text} `(string)` Text to split
+Return ~
+`(CcTui.ContentSegment[])` segments Array of content segments
+
+------------------------------------------------------------------------------
+                                                *M.contains_multiple_sections()*
+                     `M.contains_multiple_sections`({text})
+if text contains multiple distinct sections
+Parameters ~
+{text} `(string)` Text to check
+Return ~
+`(boolean)` has_sections Whether text has multiple sections
+
+------------------------------------------------------------------------------
+                                                         *M.split_by_sections()*
+                         `M.split_by_sections`({text})
+text by major sections
+Parameters ~
+{text} `(string)` Text to split
+Return ~
+`(CcTui.ContentSegment[])` segments Array of content segments
+
+------------------------------------------------------------------------------
+                                                       *M.handle_json_content()*
+                        `M.handle_json_content`({text})
+JSON content specially
+Parameters ~
+{text} `(string)` JSON text
+Return ~
+`(CcTui.ContentSegment[])` segments Array of content segments
+
+------------------------------------------------------------------------------
+                                                       *M.handle_list_content()*
+                        `M.handle_list_content`({text})
+list content
+Parameters ~
+{text} `(string)` List text
+Return ~
+`(CcTui.ContentSegment[])` segments Array of content segments
+
+------------------------------------------------------------------------------
+                                                  *M.handle_paragraph_content()*
+                      `M.handle_paragraph_content`({text})
+paragraph content
+Parameters ~
+{text} `(string)` Paragraph text
+Return ~
+`(CcTui.ContentSegment[])` segments Array of content segments
+
+------------------------------------------------------------------------------
+                                                      *M.split_into_sentences()*
+                        `M.split_into_sentences`({text})
+text into sentences
+Parameters ~
+{text} `(string)` Text to split
+Return ~
+`(string[])` sentences Array of sentences
+
+------------------------------------------------------------------------------
+                                                            *M.create_preview()*
+             `M.create_preview`({text}, {content_type}, {metadata})
+preview text for content segment
+Parameters ~
+{text} `(string)` Full text content
+{content_type} `(CcTui.ContentType)` Type of content
+{metadata} `(table)` Content metadata
+Return ~
+`(string)` preview Preview text
+
+------------------------------------------------------------------------------
+                                                       *M.create_json_preview()*
+                 `M.create_json_preview`({text}, {line_count})
+preview for JSON content
+Parameters ~
+{text} `(string)` JSON text
+{line_count} `(number)` Number of lines
+Return ~
+`(string)` preview JSON preview
+
+------------------------------------------------------------------------------
+                                                       *M.create_list_preview()*
+          `M.create_list_preview`({items}, {item_count}, {list_type})
+preview for list content
+Parameters ~
+{items} `(string[])` List items
+{item_count} `(number)` Number of items
+{list_type} `(string)` Type of list
+Return ~
+`(string)` preview List preview
+
+------------------------------------------------------------------------------
+                                                      *M.create_semantic_node()*
+ `M.create_semantic_node`({segment}, {parent_id}, {counter}, {create_node_fn})
+a semantic tree node from content segment
+Parameters ~
+{segment} `(CcTui.ContentSegment)` Content segment
+{parent_id} `(string)` Parent node ID
+{counter} `(number)` Unique counter
+{create_node_fn} `(function)` Function to create nodes
+Return ~
+`(table)` `(optional)` node Created tree node or nil
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+JSONL stream parser for Claude Code output
+Parses line-delimited JSON from Claude Code's --output-format stream-json
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.Parser.Stream}
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.Message}
+Fields ~
+{type} "`(system)`"|"assistant"|"user"|"result"
+{subtype} `(optional)` `(string)`
+{session_id} `(string)`
+{message} `(optional)` `(table)`
+{parent_tool_use_id} `(optional)` `(string)`
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.ContentBlock}
+Fields ~
+{type} "`(text)`"|"tool_use"|"tool_result"
+{text} `(optional)` `(string)`
+{id} `(optional)` `(string)` Tool use ID
+{tool_use_id} `(optional)` `(string)` Tool result reference
+{name} `(optional)` `(string)` Tool name
+{input} `(optional)` `(table)` Tool input parameters
+{content} `(optional)` `(any)` Tool result content
+
+------------------------------------------------------------------------------
+                                                                *M.parse_line()*
+                             `M.parse_line`({line})
+a single JSONL line into a message object
+Parameters ~
+{line} `(string)` JSON line to parse
+Return ~
+`(CcTui.Message)` `(optional)` message Parsed message or nil if invalid
+Return ~
+`(string)` `(optional)` error Error message if parsing failed
+
+------------------------------------------------------------------------------
+                                                       *M.build_message_index()*
+                      `M.build_message_index`({messages})
+message index for linking tool uses with results
+Parameters ~
+{messages} `(CcTui.Message[])` List of parsed messages
+Return ~
+`(table<string, CcTui.Message>)` tool_uses Map of tool_use_id to message
+Return ~
+`(table<string, CcTui.Message>)` tool_results Map of tool_use_id to result message
+
+------------------------------------------------------------------------------
+                                                               *M.parse_lines()*
+                            `M.parse_lines`({lines})
+multiple JSONL lines into a list of messages
+Parameters ~
+{lines} `(string[])` Array of JSONL lines
+Return ~
+`(CcTui.Message[])` messages List of parsed and consolidated messages
+Return ~
+`(string[])` errors List of parsing errors
+
+------------------------------------------------------------------------------
+                                                      *M.consolidate_messages()*
+                    `M.consolidate_messages`({raw_messages})
+messages that share the same message ID
+Code outputs multiple JSONL lines for the same logical message
+Parameters ~
+{raw_messages} `(CcTui.Message[])` Raw parsed messages
+Return ~
+`(CcTui.Message[])` consolidated Consolidated messages
+
+------------------------------------------------------------------------------
+                                                          *M.get_text_preview()*
+                        `M.get_text_preview`({message})
+text preview from message content
+Parameters ~
+{message} `(CcTui.Message)` Message to extract text from
+Return ~
+`(string)` `(optional)` preview Text preview or nil
+
+------------------------------------------------------------------------------
+                                                                 *M.get_tools()*
+                            `M.get_tools`({message})
+tool information from message
+Parameters ~
+{message} `(CcTui.Message)` Message to extract tool from
+Return ~
+`(table[])` tools List of tool information {id, name, input}
+
+------------------------------------------------------------------------------
+                                                          *M.get_session_info()*
+                        `M.get_session_info`({messages})
+session information from messages
+Parameters ~
+{messages} `(CcTui.Message[])` List of messages
+Return ~
+`(table)` `(optional)` session_info Session information {id, start_time, tools}
+
+------------------------------------------------------------------------------
+                                                           *M.get_result_info()*
+                        `M.get_result_info`({messages})
+result information from messages
+Parameters ~
+{messages} `(CcTui.Message[])` List of messages
+Return ~
+`(table)` `(optional)` result_info Result information {cost, duration, num_turns}
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Test data loader for Claude Code JSONL output
+Provides helper functions to load and iterate through test data
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.Parser.TestData}
+
+------------------------------------------------------------------------------
+                                                            *M.load_test_file()*
+                         `M.load_test_file`({filepath})
+JSONL test data from file
+Parameters ~
+{filepath} `(optional)` `(string)` Path to JSONL file (defaults to docs/claude-live-output.jsonl)
+Return ~
+`(string[])` lines Array of JSONL lines
+Return ~
+`(string)` `(optional)` error Error message if loading failed
+
+------------------------------------------------------------------------------
+                                                    *M.create_stream_iterator()*
+                      `M.create_stream_iterator`({lines})
+a mock streaming interface for development
+Parameters ~
+{lines} `(string[])` Array of JSONL lines
+Return ~
+`(function)` next_line Iterator function that returns next line
+
+------------------------------------------------------------------------------
+                                                       *M.get_sample_messages()*
+                           `M.get_sample_messages`()
+sample messages for different types
+Return ~
+`(table)` samples Table of sample messages by type
+
+------------------------------------------------------------------------------
+                                                         *M.load_sample_lines()*
+                         `M.load_sample_lines`({limit})
+a limited number of lines for testing
+Parameters ~
+{limit} `(optional)` `(number)` Maximum number of lines to load (default 100)
+Return ~
+`(string[])` lines Array of JSONL lines
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Base interface for data providers
+Provides common callback mechanism for data streaming
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.DataProvider}
+Fields ~
+{callbacks} `(table<string, function>)` Registered event callbacks
+
+------------------------------------------------------------------------------
+                                                                  *VALID_EVENTS*
+                                 `VALID_EVENTS`
+callback events that providers can trigger
+Type ~
+`(string[])`
+
+------------------------------------------------------------------------------
+                                                                       *M:new()*
+                                   `M:new`()
+a new data provider instance
+Return ~
+`(CcTui.DataProvider)` provider New provider instance
+
+------------------------------------------------------------------------------
+                                                         *M:register_callback()*
+                   `M:register_callback`({event}, {callback})
+a callback for a specific event
+Parameters ~
+{event} `(string)` Event name to register for
+{callback} `(function)` Function to call when event occurs
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                                     *M:start()*
+                                  `M:start`()
+the data provider (abstract method - must be implemented by concrete providers)
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                                      *M:stop()*
+                                   `M:stop`()
+the data provider (abstract method - must be implemented by concrete providers)
+Return ~
+`(nil)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Static data provider for JSONL test data
+Loads test data from files and provides via callback interface
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.StaticProvider} : CcTui.DataProvider
+Fields ~
+{limit} `(number)` Maximum number of lines to load
+
+------------------------------------------------------------------------------
+                                `default_config`
+configuration for StaticProvider
+Type ~
+`(table)`
+
+------------------------------------------------------------------------------
+                               `M:new`({config})
+a new static data provider instance
+Parameters ~
+{config} `(optional)` `(table)` Optional configuration
+Return ~
+`(CcTui.StaticProvider)` provider New static provider instance
+
+------------------------------------------------------------------------------
+                                  `M:start`()
+the static data provider - loads test data and triggers callbacks
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                   `M:stop`()
+the static data provider (no-op for static provider)
+Return ~
+`(nil)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Streaming data provider for Claude CLI subprocess integration
+Spawns Claude CLI process and streams JSON events through callback interface
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.StreamProvider} : CcTui.DataProvider
+Fields ~
+{command} `(string)` Command to execute
+{args} `(string[])` Command arguments
+{timeout} `(number)` Timeout in milliseconds
+{job_id} `(number?)` Active job ID
+
+------------------------------------------------------------------------------
+                                `default_config`
+configuration for StreamProvider
+Type ~
+`(table)`
+
+------------------------------------------------------------------------------
+                               `M:new`({config})
+a new stream provider instance
+Parameters ~
+{config} `(table)` Configuration with command, args, timeout
+Return ~
+`(CcTui.StreamProvider)` provider New stream provider instance
+
+------------------------------------------------------------------------------
+                                  `M:start`()
+the streaming provider - spawns subprocess and begins streaming
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                   `M:stop`()
+the streaming provider - terminates subprocess gracefully
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                            *M:_handle_stdout()*
+                           `M:_handle_stdout`({data})
+stdout data from subprocess
+Parameters ~
+{data} `(string[])` Raw output lines from subprocess
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                            *M:_handle_stderr()*
+                           `M:_handle_stderr`({data})
+stderr data from subprocess
+Parameters ~
+{data} `(string[])` Error output lines from subprocess
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                              *M:_handle_exit()*
+                         `M:_handle_exit`({exit_code})
+subprocess exit
+Parameters ~
+{exit_code} `(number)` Exit code from subprocess
+Return ~
+`(nil)`
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+Content renderer for displaying tool results using NUI components
+Handles rich text display, syntax highlighting, and proper formatting
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.UI.ContentRenderer}
+
+------------------------------------------------------------------------------
+                                `M.ContentType`
+CcTui.ContentDisplayType
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.ContentWindow}
+Fields ~
+{popup} `(optional)` `(NuiPopup)` Active popup window
+{split} `(optional)` `(NuiSplit)` Active split window
+{buffer_id} `(number)` Buffer ID for content
+{content_type} `(CcTui.ContentDisplayType)` Type of content displayed
+
+------------------------------------------------------------------------------
+                                                                *active_windows*
+                                `active_windows`
+Active content windows by result node ID
+Type ~
+`(table<string, CcTui.ContentWindow>)`
+
+------------------------------------------------------------------------------
+                `M.detect_content_type`({content}, {tool_name})
+content type based on tool and content analysis
+Parameters ~
+{content} `(string)` Content to analyze
+{tool_name} `(optional)` `(string)` Name of the tool that generated the content
+Return ~
+`(CcTui.ContentDisplayType)` type Detected content type
+Return ~
+`(table)` metadata Additional metadata about content
+
+------------------------------------------------------------------------------
+                         `M.is_json_content`({content})
+if content appears to be JSON
+Parameters ~
+{content} `(string)` Content to check
+Return ~
+`(boolean)` is_json Whether content is JSON
+
+------------------------------------------------------------------------------
+                                                    *M.extract_file_extension()*
+                     `M.extract_file_extension`({content})
+file extension from file content or path hints
+Parameters ~
+{content} `(string)` File content
+Return ~
+`(string)` `(optional)` extension File extension or nil
+
+------------------------------------------------------------------------------
+                                                            *M.render_content()*
+ `M.render_content`({result_node_id}, {tool_name}, {content}, {parent_window})
+content using appropriate NUI components
+Parameters ~
+{result_node_id} `(string)` Unique ID for the result node
+{tool_name} `(optional)` `(string)` Tool that generated the content
+{content} `(string)` Content to render
+{parent_window} `(optional)` `(number)` Parent window for positioning
+Return ~
+`(CcTui.ContentWindow)` `(optional)` window Created content window or nil
+
+------------------------------------------------------------------------------
+                                                       *M.render_json_content()*
+          `M.render_json_content`({result_id}, {content}, {_metadata})
+JSON content with syntax highlighting
+Parameters ~
+{result_id} `(string)` Result node ID
+{content} `(string)` JSON content
+{_metadata} `(table)` Content metadata (unused)
+Return ~
+`(CcTui.ContentWindow)` window Created content window
+
+------------------------------------------------------------------------------
+                                                       *M.render_file_content()*
+          `M.render_file_content`({result_id}, {content}, {metadata})
+file content with appropriate syntax highlighting
+Parameters ~
+{result_id} `(string)` Result node ID
+{content} `(string)` File content
+{metadata} `(table)` Content metadata with file_type
+Return ~
+`(CcTui.ContentWindow)` window Created content window
+
+------------------------------------------------------------------------------
+                                                     *M.render_command_output()*
+         `M.render_command_output`({result_id}, {content}, {_metadata})
+command output with terminal-like styling
+Parameters ~
+{result_id} `(string)` Result node ID
+{content} `(string)` Command output
+{metadata} `(table)` Content metadata
+Return ~
+`(CcTui.ContentWindow)` window Created content window
+
+------------------------------------------------------------------------------
+                                                      *M.render_error_content()*
+         `M.render_error_content`({result_id}, {content}, {_metadata})
+error content with error highlighting
+Parameters ~
+{result_id} `(string)` Result node ID
+{content} `(string)` Error content
+{metadata} `(table)` Content metadata
+Return ~
+`(CcTui.ContentWindow)` window Created content window
+
+------------------------------------------------------------------------------
+                                                    *M.render_generic_content()*
+        `M.render_generic_content`({result_id}, {content}, {_metadata})
+generic text content
+Parameters ~
+{result_id} `(string)` Result node ID
+{content} `(string)` Text content
+{metadata} `(table)` Content metadata
+Return ~
+`(CcTui.ContentWindow)` window Created content window
+
+------------------------------------------------------------------------------
+                                                      *M.close_content_window()*
+                   `M.close_content_window`({result_node_id})
+content window for a result node
+Parameters ~
+{result_node_id} `(string)` Result node ID
+Return ~
+`(boolean)` closed Whether a window was closed
+
+------------------------------------------------------------------------------
+                                                 *M.close_all_content_windows()*
+                        `M.close_all_content_windows`()
+all active content windows
+Return ~
+`(number)` closed_count Number of windows closed
+
+------------------------------------------------------------------------------
+                                                    *M.is_content_window_open()*
+                  `M.is_content_window_open`({result_node_id})
+if a content window is open for a result node
+Parameters ~
+{result_node_id} `(string)` Result node ID
+Return ~
+`(boolean)` is_open Whether window is open
+
+------------------------------------------------------------------------------
+                                                        *M.get_active_windows()*
+                            `M.get_active_windows`()
+list of active content windows
+Return ~
+`(string[])` result_ids List of result node IDs with open windows
+
+
+==============================================================================
+------------------------------------------------------------------------------
+[[
+NuiTree component for rendering Claude Code output
+Displays hierarchical tree of messages, tools, and results
+]]
+
+------------------------------------------------------------------------------
+                                      `M`
+Class ~
+{CcTui.Ui.Tree}
+
+------------------------------------------------------------------------------
+Class ~
+{CcTui.TreeConfig}
+Fields ~
+{keymaps} `(table<string, string|function>)` Keybinding configuration
+{icons} `(table<string, string>)` Icon configuration
+{colors} `(table<string, string>)` Color highlight groups
+
+------------------------------------------------------------------------------
+                                `default_config`
+configuration
+Type ~
+`(CcTui.TreeConfig)`
+
+------------------------------------------------------------------------------
+                                                             *create_nui_node()*
+                     `create_nui_node`({cc_node}, {config})
+NuiTree nodes from cc-tui nodes
+Parameters ~
+{cc_node} `(CcTui.BaseNode)` CC-TUI node
+{config} `(CcTui.TreeConfig)` Configuration
+Return ~
+`(NuiTree.Node)` nui_node NuiTree node
+
+------------------------------------------------------------------------------
+                                                               *M.create_tree()*
+                `M.create_tree`({root_node}, {config}, {bufnr})
+a new tree component
+Parameters ~
+{root_node} `(CcTui.BaseNode)` Root node of the tree
+{config} `(optional)` `(CcTui.TreeConfig)` Optional configuration
+{bufnr} `(optional)` `(number)` Optional buffer number to use instead of creating new buffer
+Return ~
+`(NuiTree)` tree NuiTree instance
+
+------------------------------------------------------------------------------
+                                                         *M.setup_keybindings()*
+                `M.setup_keybindings`({tree}, {bufnr}, {config})
+keybindings for the tree
+Parameters ~
+{tree} `(NuiTree)` Tree instance
+{bufnr} `(number)` Buffer number
+{config} `(CcTui.TreeConfig)` Configuration
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                               *M.update_tree()*
+                 `M.update_tree`({tree}, {root_node}, {config})
+tree with new root node
+Parameters ~
+{tree} `(NuiTree)` Tree instance
+{root_node} `(CcTui.BaseNode)` New root node
+{config} `(CcTui.TreeConfig)` Configuration
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                               *M.reveal_node()*
+                       `M.reveal_node`({tree}, {node_id})
+node to reveal a specific node by ID
+Parameters ~
+{tree} `(NuiTree)` Tree instance
+{node_id} `(string)` Node ID to reveal
+Return ~
+`(boolean)` success Whether node was found and revealed
+
+------------------------------------------------------------------------------
+                                                          *M.get_focused_node()*
+                          `M.get_focused_node`({tree})
+currently focused node data
+Parameters ~
+{tree} `(NuiTree)` Tree instance
+Return ~
+`(CcTui.BaseNode)` `(optional)` node CC-TUI node data or nil
+
+------------------------------------------------------------------------------
+                                                          *M.setup_highlights()*
+                             `M.setup_highlights`()
+highlight groups for tree elements
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                        *M.toggle_result_node()*
+                     `M.toggle_result_node`({node}, {tree})
+a result node - show/hide rich content using ContentRenderer
+Parameters ~
+{node} `(NuiTree.Node)` Result node to toggle
+{tree} `(NuiTree)` Tree instance for rendering updates
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                   *M.should_use_rich_display()*
+                   `M.should_use_rich_display`({result_data})
+if result content should use rich display or normal tree expansion
+Parameters ~
+{result_data} `(CcTui.ResultNode)` Result node data
+Return ~
+`(boolean)` should_use_rich_display Whether to use ContentRenderer
+
+------------------------------------------------------------------------------
+                                                          *M.find_parent_tool()*
+                  `M.find_parent_tool`({tree}, {result_node})
+the parent tool node for a result node
+Parameters ~
+{tree} `(NuiTree)` Tree instance
+{result_node} `(NuiTree.Node)` Result node
+Return ~
+`(CcTui.ToolNode)` `(optional)` tool_data Parent tool data or nil
+
+------------------------------------------------------------------------------
+                                                   *M.cleanup_content_windows()*
+                         `M.cleanup_content_windows`()
+all content windows (cleanup function)
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                               *M.get_content_windows_summary()*
+                       `M.get_content_windows_summary`()
+summary of currently open content windows
+Return ~
+`(table)` summary Summary of open windows
+
+
  vim:tw=78:ts=8:noet:ft=help:norl:
