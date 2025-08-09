@@ -84,26 +84,82 @@ end
 
 ---Parse multiple JSONL lines into a list of messages
 ---@param lines string[] Array of JSONL lines
----@return CcTui.Message[] messages List of parsed messages
+---@return CcTui.Message[] messages List of parsed and consolidated messages
 ---@return string[] errors List of parsing errors
 function M.parse_lines(lines)
     vim.validate({
         lines = { lines, "table" },
     })
 
-    local messages = {}
+    local raw_messages = {}
     local errors = {}
 
+    -- First pass: parse all lines
     for i, line in ipairs(lines) do
         local msg, err = M.parse_line(line)
         if msg then
-            table.insert(messages, msg)
+            table.insert(raw_messages, msg)
         elseif err then
             table.insert(errors, string.format("Line %d: %s", i, err))
         end
     end
 
-    return messages, errors
+    -- Second pass: consolidate messages with same ID
+    local consolidated = M.consolidate_messages(raw_messages)
+
+    return consolidated, errors
+end
+
+---Consolidate messages that share the same message ID
+---Claude Code outputs multiple JSONL lines for the same logical message
+---@param raw_messages CcTui.Message[] Raw parsed messages
+---@return CcTui.Message[] consolidated Consolidated messages
+function M.consolidate_messages(raw_messages)
+    vim.validate({
+        raw_messages = { raw_messages, "table" },
+    })
+
+    local message_map = {}
+    local consolidated = {}
+
+    for _, msg in ipairs(raw_messages) do
+        if msg.type == "assistant" and msg.message and msg.message.id then
+            local msg_id = msg.message.id
+
+            if message_map[msg_id] then
+                -- Merge content into existing message
+                local existing = message_map[msg_id]
+                if msg.message.content then
+                    for _, content in ipairs(msg.message.content) do
+                        table.insert(existing.message.content, content)
+                    end
+                end
+            else
+                -- First occurrence of this message ID
+                message_map[msg_id] = {
+                    type = msg.type,
+                    message = {
+                        id = msg.message.id,
+                        type = msg.message.type,
+                        role = msg.message.role,
+                        model = msg.message.model,
+                        content = msg.message.content and vim.deepcopy(msg.message.content) or {},
+                        stop_reason = msg.message.stop_reason,
+                        stop_sequence = msg.message.stop_sequence,
+                        usage = msg.message.usage,
+                    },
+                    parent_tool_use_id = msg.parent_tool_use_id,
+                    session_id = msg.session_id,
+                }
+                table.insert(consolidated, message_map[msg_id])
+            end
+        else
+            -- Non-assistant messages or messages without IDs pass through unchanged
+            table.insert(consolidated, msg)
+        end
+    end
+
+    return consolidated
 end
 
 ---Extract text preview from message content

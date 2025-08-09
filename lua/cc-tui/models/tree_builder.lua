@@ -175,28 +175,29 @@ function M.create_message_node_from_message(message, create_text_node)
 
     local node = Node.create_message_node(msg_id, role, preview)
 
-    -- Add text content as children (if no tools)
+    -- Only add text children if no tools AND text is significantly longer than preview
     local has_tools = false
+    local text_content = ""
+
     if message.message.content then
         for _, content in ipairs(message.message.content) do
             if content.type == "tool_use" then
                 has_tools = true
-                break
+            elseif content.type == "text" and content.text then
+                text_content = content.text
             end
         end
 
-        if not has_tools then
-            for _, content in ipairs(message.message.content) do
-                if content.type == "text" and content.text then
-                    -- Create a single text node with full content for non-tool messages
-                    local full_text = content.text:gsub("\n", " "):gsub("%s+", " ")
-                    if #full_text > 100 then
-                        full_text = full_text:sub(1, 97) .. "..."
-                    end
-                    local text_node = create_text_node(full_text, node.id)
-                    table.insert(node.children, text_node)
-                end
+        -- Only add detailed text as child if:
+        -- 1. No tools present (tools are more important than text details)
+        -- 2. Text is significantly longer than the preview (avoid duplication)
+        if not has_tools and text_content and #text_content > 150 then
+            local full_text = text_content:gsub("\n", " "):gsub("%s+", " ")
+            if #full_text > 200 then
+                full_text = full_text:sub(1, 197) .. "..."
             end
+            local text_node = create_text_node("Full text: " .. full_text, node.id)
+            table.insert(node.children, text_node)
         end
     end
 
