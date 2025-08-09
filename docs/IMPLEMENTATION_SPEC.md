@@ -74,19 +74,42 @@ Each line is a complete JSON object with one of these types:
 ▼ Session: 16368255-989b-4b2d-af5c [14:23:15]
   ▼ Assistant: "I'll help you fix this issue..."
     ▼ Tool: Read [package.json]
-      │ {
-      │   "name": "my-project",
-      │   "version": "1.0.0"
-      │ }
-    ▶ Tool: Bash [npm install]
+      ▼ Result: +25 lines (expand to view) ← Shows popup when toggled
+    ▶ Tool: Bash [npm install] 
+      ▶ Result: Command output (8 lines) ← Shows popup when toggled
+    ▼ Tool: mcp__context7__get-library-docs
+      ▼ Result: API response (169 lines) ← Shows popup when toggled
     ▼ Tool: Edit [src/main.js]
-      │ - const old = "value"
-      │ + const new = "updated"
-    ▼ Tool: Task [implementation-specialist]
-      ▶ Sub-tool: Write [helper.js]
-      ▶ Sub-tool: Edit [main.js]
+      ▼ Result: File content ← Small result, shows inline
+        │ - const old = "value"
+        │ + const new = "updated"
   ▶ Assistant: "The changes have been completed..."
 ```
+
+### Content Display Rules
+
+**CRITICAL**: Every expandable node MUST show actual content when toggled.
+
+#### Small Content (≤5 lines, ≤200 chars)
+- Displays inline as tree children
+- Immediate visibility in tree structure
+- No popup required
+
+#### Large Content (>5 lines OR >200 chars OR JSON)
+- Shows descriptive summary when collapsed: "API response (169 lines)"
+- **When toggled**: Opens popup window with full content
+- Popup features:
+  - Syntax highlighting (JSON, code, shell output)
+  - Scrollable interface
+  - Quick close (q/Esc keys)
+  - Proper window sizing
+
+#### Content Categories
+1. **JSON Data** → Always popup with json syntax highlighting
+2. **File Content** → Popup with file-type syntax highlighting  
+3. **Command Output** → Popup with shell highlighting
+4. **API Responses** → Popup with appropriate formatting
+5. **Text Messages** → Inline if small, popup if large
 
 ### Tree Node Types
 

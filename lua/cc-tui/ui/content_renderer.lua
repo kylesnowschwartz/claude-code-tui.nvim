@@ -3,10 +3,7 @@
 --- Handles rich text display, syntax highlighting, and proper formatting
 ---@brief ]]
 
-local Line = require("nui.line")
 local Popup = require("nui.popup")
-local Split = require("nui.split")
-local Text = require("nui.text")
 
 ---@class CcTui.UI.ContentRenderer
 local M = {}
@@ -144,9 +141,9 @@ end
 ---Render JSON content with syntax highlighting
 ---@param result_id string Result node ID
 ---@param content string JSON content
----@param metadata table Content metadata
+---@param _metadata table Content metadata (unused)
 ---@return CcTui.ContentWindow window Created content window
-function M.render_json_content(result_id, content, metadata)
+function M.render_json_content(result_id, content, _metadata)
     local lines = vim.split(content, "\n")
     local line_count = #lines
 
@@ -203,8 +200,10 @@ function M.render_json_content(result_id, content, metadata)
 
     popup:mount()
 
-    -- Set content with proper formatting
+    -- Temporarily make buffer modifiable to set content
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
 
     -- Add close keybinding
     popup:map("n", "q", function()
@@ -257,7 +256,11 @@ function M.render_file_content(result_id, content, metadata)
     })
 
     popup:mount()
+
+    -- Temporarily make buffer modifiable to set content
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
 
     -- Add close keybindings
     popup:map("n", "q", function()
@@ -280,7 +283,7 @@ end
 ---@param content string Command output
 ---@param metadata table Content metadata
 ---@return CcTui.ContentWindow window Created content window
-function M.render_command_output(result_id, content, metadata)
+function M.render_command_output(result_id, content, _metadata)
     local lines = vim.split(content, "\n")
     local line_count = #lines
 
@@ -308,7 +311,11 @@ function M.render_command_output(result_id, content, metadata)
     })
 
     popup:mount()
+
+    -- Temporarily make buffer modifiable to set content
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
 
     -- Add close keybindings
     popup:map("n", "q", function()
@@ -331,7 +338,7 @@ end
 ---@param content string Error content
 ---@param metadata table Content metadata
 ---@return CcTui.ContentWindow window Created content window
-function M.render_error_content(result_id, content, metadata)
+function M.render_error_content(result_id, content, _metadata)
     local lines = vim.split(content, "\n")
 
     local popup = Popup({
@@ -354,7 +361,11 @@ function M.render_error_content(result_id, content, metadata)
     })
 
     popup:mount()
+
+    -- Temporarily make buffer modifiable to set content
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
 
     -- Add error highlighting
     local ns_id = vim.api.nvim_create_namespace("cc_tui_error")
@@ -383,7 +394,7 @@ end
 ---@param content string Text content
 ---@param metadata table Content metadata
 ---@return CcTui.ContentWindow window Created content window
-function M.render_generic_content(result_id, content, metadata)
+function M.render_generic_content(result_id, content, _metadata)
     local lines = vim.split(content, "\n")
     local line_count = #lines
 
@@ -410,7 +421,11 @@ function M.render_generic_content(result_id, content, metadata)
     })
 
     popup:mount()
+
+    -- Temporarily make buffer modifiable to set content
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", true)
     vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, lines)
+    vim.api.nvim_buf_set_option(popup.bufnr, "modifiable", false)
 
     -- Add close keybindings
     popup:map("n", "q", function()

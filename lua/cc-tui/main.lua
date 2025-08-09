@@ -3,7 +3,6 @@
 --- Manages the plugin's core functionality and UI state
 ---@brief ]]
 
-local Keymaps = require("cc-tui.keymaps")
 local Parser = require("cc-tui.parser.stream")
 local Popup = require("nui.popup")
 local TestData = require("cc-tui.parser.test_data")
@@ -159,90 +158,53 @@ function M.enable(scope)
     -- Render tree in popup buffer
     main_state.tree:render()
 
-    -- Setup tree keybindings
-    local tree_handlers = {
-        toggle_node = function()
-            local node = main_state.tree:get_node()
-            if node and node:has_children() then
-                if node:is_expanded() then
-                    node:collapse()
-                else
-                    node:expand()
-                end
-                main_state.tree:render()
-            end
-        end,
-        close_window = function()
-            M.disable("keymap_close")
-        end,
-        expand_all = function()
-            for _, node in pairs(main_state.tree.nodes.by_id) do
-                if node:has_children() then
-                    node:expand()
-                end
-            end
-            main_state.tree:render()
-        end,
-        collapse_all = function()
-            for _, node in pairs(main_state.tree.nodes.by_id) do
-                if node:has_children() and node:get_depth() > 0 then
-                    node:collapse()
-                end
-            end
-            main_state.tree:render()
-        end,
-        next_node = function()
-            vim.cmd("normal! j")
-        end,
-        prev_node = function()
-            vim.cmd("normal! k")
-        end,
-        copy_text = function()
-            local node = Tree.get_focused_node(main_state.tree)
-            if node and node.text then
-                vim.fn.setreg("+", node.text)
-                vim.notify("Copied to clipboard", vim.log.levels.INFO)
-            end
-        end,
-        refresh = function()
-            M.refresh()
-        end,
-        help = function()
-            Keymaps.show_help("tree")
-        end,
-        -- Add missing handlers for keymap compatibility
-        parent_node = function()
-            vim.cmd("normal! h")
-        end,
-        child_node = function()
-            vim.cmd("normal! l")
-        end,
-        first_sibling = function()
-            vim.cmd("normal! ^")
-        end,
-        last_sibling = function()
-            vim.cmd("normal! $")
-        end,
-        copy_all = function()
-            -- Copy entire tree content
-            vim.cmd("normal! ggyG")
-        end,
-        search = function()
-            vim.cmd("normal! /")
-        end,
-        next_match = function()
-            vim.cmd("normal! n")
-        end,
-        prev_match = function()
-            vim.cmd("normal! N")
-        end,
+    -- Setup tree keybindings using Tree module (integrates with hybrid content rendering)
+    local tree_config = {
+        keymaps = {
+            toggle = { "<Space>", "<CR>" },
+            close = { "q", "<Esc>" },
+            expand_all = "E",
+            collapse_all = "C",
+            focus_next = { "j", "<Down>" },
+            focus_prev = { "k", "<Up>" },
+            copy_text = "y",
+            close_content = "x",
+            close_all_content = "X",
+            search = "/",
+        },
+        icons = {
+            expanded = "▼",
+            collapsed = "▶",
+            empty = " ",
+        },
+        colors = {
+            session = "CcTuiSession",
+            message = "CcTuiMessage",
+            tool = "CcTuiTool",
+            result = "CcTuiResult",
+            text = "CcTuiText",
+            error = "CcTuiError",
+        },
     }
 
-    -- Get keymap config
-    local keymap_config = Keymaps.get_config()
+    Tree.setup_keybindings(main_state.tree, main_state.popup.bufnr, tree_config)
 
-    -- Setup buffer keymaps
-    Keymaps.setup_tree_buffer(main_state.popup.bufnr, keymap_config.tree, tree_handlers)
+    -- Add close window handler
+    vim.keymap.set("n", "q", function()
+        M.disable("keymap_close")
+    end, {
+        buffer = main_state.popup.bufnr,
+        desc = "Close CC-TUI window",
+        nowait = true,
+    })
+
+    vim.keymap.set("n", "<Esc>", function()
+        M.disable("keymap_close")
+    end, {
+        buffer = main_state.popup.bufnr,
+        desc = "Close CC-TUI window",
+        nowait = true,
+    })
 
     -- Store popup reference in state for compatibility
     state:set_ui_component(main_state.popup)
