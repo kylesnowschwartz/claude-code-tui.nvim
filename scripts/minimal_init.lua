@@ -16,6 +16,30 @@ if #vim.api.nvim_list_uis() == 0 then
     -- Set up 'mini.test'
     require("mini.test").setup()
 
-    -- Set up 'mini.doc'
-    require("mini.doc").setup()
+    -- Set up 'mini.doc' with custom hook to avoid duplicate 'M' tags
+    require("mini.doc").setup({
+        hooks = {
+            write_pre = function(lines)
+                -- Track seen tags to remove duplicates
+                local seen_tags = {}
+                local new_lines = {}
+
+                for i, line in ipairs(lines) do
+                    -- Check for help tags (pattern: *tag_name*)
+                    local tag = line:match("^%s*%*([^%*]+)%*%s*$")
+                    if tag then
+                        if seen_tags[tag] then
+                            -- Skip duplicate tag
+                        else
+                            seen_tags[tag] = true
+                            table.insert(new_lines, line)
+                        end
+                    else
+                        table.insert(new_lines, line)
+                    end
+                end
+                return new_lines
+            end,
+        },
+    })
 end
