@@ -336,9 +336,8 @@ function M.split_into_semantic_segments(text)
         }
     end
 
-    local segments = {}
-
     -- Try to detect major content boundaries
+    local segments
     if M.contains_multiple_sections(text) then
         segments = M.split_by_sections(text)
     elseif M.is_json_content(text) then
@@ -383,7 +382,7 @@ function M.split_by_sections(text)
     local section_pattern = "([A-Z][A-Z%s_]+:%s*)"
     local current_pos = 1
 
-    for section_start, section_title in text:gmatch("()" .. section_pattern) do
+    for section_start, _ in text:gmatch("()" .. section_pattern) do
         -- Add content before this section (if any)
         if section_start > current_pos then
             local before_content = text:sub(current_pos, section_start - 1):gsub("^%s+", ""):gsub("%s+$", "")

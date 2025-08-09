@@ -258,7 +258,7 @@ end
 ---@param tool_name? string Name of the tool
 ---@return CcTui.ResultNode node Result node
 function M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name)
-    local preview_text = "Result"
+    local preview_text = "Result" -- luacheck: ignore 311
 
     if is_error then
         preview_text = "❌ Error"
@@ -271,7 +271,7 @@ function M.create_tool_aware_result_node(tool_use_id, result_text, is_error, too
         elseif tool_name == "Bash" then
             local first_line = M.get_first_line(result_text)
             preview_text = line_count > 5 and string.format("Command output (%d lines)", line_count) or first_line
-        elseif tool_name:match("^mcp__") then
+        elseif tool_name and tool_name:match("^mcp__") then
             -- MCP tool results (API responses, etc.)
             preview_text = line_count > 8 and string.format("API response (%d lines)", line_count) or "API result"
         else
@@ -287,10 +287,10 @@ end
 ---Add formatted children to result node based on content type
 ---@param node CcTui.ResultNode Result node to add children to
 ---@param result_text string Full result text
----@param tool_name? string Name of the tool
+---@param _ string Name of the tool (unused)
 ---@param create_text_node function Function to create text nodes
 ---@return nil
-function M.add_formatted_result_children(node, result_text, tool_name, create_text_node)
+function M.add_formatted_result_children(node, result_text, _, create_text_node)
     local line_count = M.count_result_lines(result_text)
 
     -- Hybrid approach: Only add children for very small content
