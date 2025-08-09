@@ -1,5 +1,5 @@
-YourPluginName.disable()	neovim-plugin-boilerplate.txt	/*YourPluginName.disable()*
-YourPluginName.enable()	neovim-plugin-boilerplate.txt	/*YourPluginName.enable()*
-YourPluginName.options	neovim-plugin-boilerplate.txt	/*YourPluginName.options*
-YourPluginName.setup()	neovim-plugin-boilerplate.txt	/*YourPluginName.setup()*
-YourPluginName.toggle()	neovim-plugin-boilerplate.txt	/*YourPluginName.toggle()*
+CcTui.disable()	cc-tui.txt	/*CcTui.disable()*
+CcTui.enable()	cc-tui.txt	/*CcTui.enable()*
+CcTui.options	cc-tui.txt	/*CcTui.options*
+CcTui.setup()	cc-tui.txt	/*CcTui.setup()*
+CcTui.toggle()	cc-tui.txt	/*CcTui.toggle()*
