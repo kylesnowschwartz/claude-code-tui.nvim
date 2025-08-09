@@ -6,6 +6,7 @@
 local Parser = require("cc-tui.parser.stream")
 local Popup = require("nui.popup")
 local StaticProvider = require("cc-tui.providers.static")
+local StreamProvider = require("cc-tui.providers.stream")
 local Tree = require("cc-tui.ui.tree")
 local TreeBuilder = require("cc-tui.models.tree_builder")
 local log = require("cc-tui.util.log")
@@ -19,6 +20,7 @@ local M = {}
 ---@field tree NuiTree? Active tree component
 ---@field tree_data CcTui.BaseNode? Tree data structure
 ---@field messages CcTui.Message[] Parsed messages
+---@field streaming_provider CcTui.StreamProvider? Active streaming provider
 
 ---Internal state
 ---@type CcTui.MainState
@@ -27,6 +29,7 @@ local main_state = {
     tree = nil,
     tree_data = nil,
     messages = {},
+    streaming_provider = nil,
 }
 
 ---Toggle the plugin by calling the `enable`/`disable` methods respectively.
@@ -359,6 +362,72 @@ function M.process_line(line)
     end
 
     log.debug("main", string.format("Processed message type: %s", msg.type))
+end
+
+---Start streaming from Claude CLI
+---@param config? table StreamProvider configuration {command, args, timeout}
+---@return nil
+function M.start_streaming(config)
+    vim.validate({
+        config = { config, "table", true },
+    })
+
+    -- Stop any existing streaming
+    M.stop_streaming()
+
+    -- Default configuration for Claude CLI
+    local stream_config = vim.tbl_deep_extend("force", {
+        command = "claude-code",
+        args = { "--output-format", "stream-json" },
+        timeout = 60000, -- 60 seconds
+    }, config or {})
+
+    -- Create streaming provider
+    local provider = StreamProvider:new(stream_config)
+
+    -- Set up callbacks for live updates
+    provider:register_callback("on_start", function()
+        log.debug("main", "Streaming started")
+    end)
+
+    provider:register_callback("on_data", function(line)
+        -- Use vim.schedule for thread-safe UI updates
+        vim.schedule(function()
+            M.process_line(line)
+        end)
+    end)
+
+    provider:register_callback("on_error", function(err)
+        vim.schedule(function()
+            log.debug("main", "Streaming error: " .. err)
+            vim.notify("CC-TUI Streaming Error: " .. err, vim.log.levels.ERROR)
+        end)
+    end)
+
+    provider:register_callback("on_complete", function()
+        vim.schedule(function()
+            log.debug("main", "Streaming completed")
+            vim.notify("CC-TUI: Streaming completed", vim.log.levels.INFO)
+            main_state.streaming_provider = nil
+        end)
+    end)
+
+    -- Store provider and start streaming
+    main_state.streaming_provider = provider
+    provider:start()
+
+    log.debug("main", string.format("Started streaming with command: %s", stream_config.command))
+end
+
+---Stop active streaming
+---@return nil
+function M.stop_streaming()
+    if main_state.streaming_provider then
+        log.debug("main", "Stopping active streaming")
+        main_state.streaming_provider:stop()
+        main_state.streaming_provider = nil
+        vim.notify("CC-TUI: Streaming stopped", vim.log.levels.INFO)
+    end
 end
 
 ---Get current state for debugging
