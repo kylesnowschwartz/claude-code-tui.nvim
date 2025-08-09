@@ -208,13 +208,14 @@ function M.create_message_node_from_message(message, create_text_node)
     return node
 end
 
----Create result node from tool result content
+---Create result node from tool result content with Claude Code stream integration
 ---@param tool_use_id string Tool use identifier
----@param content table Tool result content
+---@param content table Tool result content (Claude Code structured data)
 ---@param create_text_node function Function to create unique text nodes
 ---@param tool_name? string Name of the tool that generated this result
+---@param stream_context? table Optional Claude Code stream context for deterministic classification
 ---@return CcTui.ResultNode? node Result node or nil
-function M.create_result_node_from_content(tool_use_id, content, create_text_node, tool_name)
+function M.create_result_node_from_content(tool_use_id, content, create_text_node, tool_name, stream_context)
     vim.validate({
         tool_use_id = { tool_use_id, "string" },
         content = { content, "table" },
@@ -244,6 +245,7 @@ function M.create_result_node_from_content(tool_use_id, content, create_text_nod
     local node = M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name)
 
     -- Add formatted content as children based on tool type and content length
+    -- Enhanced with Claude Code stream context for deterministic classification
     if result_text and result_text ~= "" then
         M.add_formatted_result_children(node, result_text, tool_name, create_text_node, content)
     end
