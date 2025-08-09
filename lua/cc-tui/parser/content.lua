@@ -92,18 +92,9 @@ end
 ---@param text string Text to check
 ---@return boolean is_json Whether the text is JSON content
 function M.is_json_content(text)
-    -- Look for JSON patterns
-    if text:match("^%s*{") and text:match("}%s*$") then
-        return true
-    end
-    if text:match("^%s*%[") and text:match("%]%s*$") then
-        return true
-    end
-    -- Look for JSON-like key-value patterns
-    if text:match('"[^"]+"%s*:%s*') and (text:match("{") or text:match("}")) then
-        return true
-    end
-    return false
+    -- REPLACED: Use unified ContentClassifier instead of fragmented logic
+    local ContentClassifier = require("cc-tui.utils.content_classifier")
+    return ContentClassifier.is_json_content(text)
 end
 
 ---Check if content is a code block

@@ -350,9 +350,9 @@ function M.should_use_rich_display_for_content(content, is_error)
             return true
         end
 
-        -- Check for JSON content
-        local trimmed = content:match("^%s*(.-)%s*$")
-        if (trimmed:match("^{") and trimmed:match("}$")) or (trimmed:match("^%[") and trimmed:match("%]$")) then
+        -- Check for JSON content using unified ContentClassifier
+        local ContentClassifier = require("cc-tui.utils.content_classifier")
+        if ContentClassifier.is_json_content(content) then
             return true
         end
     end

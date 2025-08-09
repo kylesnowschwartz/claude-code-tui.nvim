@@ -1,0 +1,199 @@
+---@brief [[
+--- Tests for ContentClassifier unified content type detection
+--- Validates the replacement of fragmented detection logic with unified classifier
+---@brief ]]
+
+local Helpers = dofile("tests/helpers.lua")
+
+-- Unit tests for ContentClassifier - no child neovim process needed for pure logic
+local T = MiniTest.new_set()
+
+-- Import ContentClassifier (will be created)
+local ContentClassifier
+
+T["ContentClassifier Module Loading"] = MiniTest.new_set()
+
+T["ContentClassifier Module Loading"]["loads without error"] = function()
+    -- RED: This will fail initially since module doesn't exist yet
+    local ok, classifier = pcall(require, "cc-tui.utils.content_classifier")
+    MiniTest.expect.equality(ok, true)
+    MiniTest.expect.equality(type(classifier), "table")
+    ContentClassifier = classifier
+end
+
+T["ContentClassifier API"] = MiniTest.new_set()
+
+T["ContentClassifier API"]["has classify method"] = function()
+    -- RED: Will fail until we implement the API
+    MiniTest.expect.equality(type(ContentClassifier.classify), "function")
+end
+
+T["ContentClassifier API"]["has content type constants"] = function()
+    -- RED: Will fail until we implement the constants
+    MiniTest.expect.equality(type(ContentClassifier.ContentType), "table")
+    MiniTest.expect.equality(type(ContentClassifier.ContentType.TOOL_INPUT), "string")
+    MiniTest.expect.equality(type(ContentClassifier.ContentType.JSON_API_RESPONSE), "string")
+    MiniTest.expect.equality(type(ContentClassifier.ContentType.ERROR_OBJECT), "string")
+    MiniTest.expect.equality(type(ContentClassifier.ContentType.FILE_CONTENT), "string")
+    MiniTest.expect.equality(type(ContentClassifier.ContentType.COMMAND_OUTPUT), "string")
+    MiniTest.expect.equality(type(ContentClassifier.ContentType.GENERIC_TEXT), "string")
+end
+
+T["JSON Content Detection"] = MiniTest.new_set()
+
+T["JSON Content Detection"]["detects simple JSON objects"] = function()
+    -- RED: Will fail until implementation exists
+    local result = ContentClassifier.classify('{"key": "value"}')
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.JSON_API_RESPONSE)
+    MiniTest.expect.equality(type(result.confidence), "number")
+    MiniTest.expect.equality(type(result.metadata), "table")
+end
+
+T["JSON Content Detection"]["detects JSON arrays"] = function()
+    -- RED: Will fail until implementation exists
+    local result = ContentClassifier.classify('[{"item": 1}, {"item": 2}]')
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.JSON_API_RESPONSE)
+end
+
+T["JSON Content Detection"]["detects complex nested JSON"] = function()
+    -- RED: Test with realistic Claude Code MCP response
+    local complex_json = [[{
+  "jsonrpc": "2.0",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Function documentation here"
+      }
+    ]
+  },
+  "id": 123
+}]]
+    local result = ContentClassifier.classify(complex_json)
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.JSON_API_RESPONSE)
+    MiniTest.expect.equality(result.metadata.is_mcp_response, true)
+end
+
+T["JSON Content Detection"]["rejects non-JSON content"] = function()
+    -- RED: Will fail until implementation exists
+    local result = ContentClassifier.classify("This is plain text, not JSON")
+    MiniTest.expect.no_equality(result.type, ContentClassifier.ContentType.JSON_API_RESPONSE)
+end
+
+T["Tool Context Classification"] = MiniTest.new_set()
+
+T["Tool Context Classification"]["classifies tool inputs as TOOL_INPUT"] = function()
+    -- RED: Will fail until context-aware classification is implemented
+    local result = ContentClassifier.classify('{"file_path": "/tmp/test.txt"}', "Read", "input")
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.TOOL_INPUT)
+    MiniTest.expect.equality(result.metadata.tool_name, "Read")
+end
+
+T["Tool Context Classification"]["classifies Read tool output as FILE_CONTENT"] = function()
+    -- RED: Will fail until tool-aware classification is implemented
+    local file_content = [[function hello()
+    print("Hello World")
+end]]
+    local result = ContentClassifier.classify(file_content, "Read", "output")
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.FILE_CONTENT)
+    MiniTest.expect.equality(result.metadata.tool_name, "Read")
+end
+
+T["Tool Context Classification"]["classifies Bash tool output as COMMAND_OUTPUT"] = function()
+    -- RED: Will fail until tool-aware classification is implemented
+    local bash_output = [[total 16
+-rw-r--r--  1 user  staff  1024 Dec 25 10:30 test.txt
+-rw-r--r--  1 user  staff  2048 Dec 25 10:31 data.json]]
+    local result = ContentClassifier.classify(bash_output, "Bash", "output")
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.COMMAND_OUTPUT)
+    MiniTest.expect.equality(result.metadata.tool_name, "Bash")
+end
+
+T["Error Content Detection"] = MiniTest.new_set()
+
+T["Error Content Detection"]["detects error patterns"] = function()
+    -- RED: Will fail until error detection is implemented
+    local error_content = "Error: File not found: /nonexistent/path.txt"
+    local result = ContentClassifier.classify(error_content)
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.ERROR_OBJECT)
+    MiniTest.expect.equality(result.metadata.error_type, "file_not_found")
+end
+
+T["Error Content Detection"]["detects JSON error responses"] = function()
+    -- RED: Will fail until JSON error detection is implemented
+    local json_error = '{"error": {"message": "Invalid request", "code": 400}}'
+    local result = ContentClassifier.classify(json_error)
+    MiniTest.expect.equality(result.type, ContentClassifier.ContentType.ERROR_OBJECT)
+    MiniTest.expect.equality(result.metadata.is_json_error, true)
+end
+
+T["Consistency Validation"] = MiniTest.new_set()
+
+T["Consistency Validation"]["same content produces same classification"] = function()
+    -- RED: Will fail until implementation is deterministic
+    local content = '{"test": "data", "nested": {"value": 123}}'
+
+    local result1 = ContentClassifier.classify(content)
+    local result2 = ContentClassifier.classify(content)
+    local result3 = ContentClassifier.classify(content)
+
+    -- Same content should ALWAYS produce same type
+    MiniTest.expect.equality(result1.type, result2.type)
+    MiniTest.expect.equality(result2.type, result3.type)
+    MiniTest.expect.equality(result1.confidence, result2.confidence)
+end
+
+T["Consistency Validation"]["replaces all existing detection functions"] = function()
+    -- RED: Integration test - will fail until we replace the old functions
+    local test_json = '{"example": "json content"}'
+
+    -- Test that our classifier matches what the old functions would have returned
+    local classifier_result = ContentClassifier.classify(test_json)
+
+    -- Load the old detection functions
+    local parser_content = require("cc-tui.parser.content")
+    local content_renderer = require("cc-tui.ui.content_renderer")
+    local tree_builder = require("cc-tui.models.tree_builder")
+
+    -- All three old functions should agree with our classifier for JSON
+    local parser_detects_json = parser_content.is_json_content(test_json)
+
+    -- NOTE: content_renderer.is_json_content has a bug - returns string instead of boolean
+    -- This is exactly why we need ContentClassifier to fix these inconsistencies!
+    local renderer_result = content_renderer.is_json_content(test_json)
+    local renderer_detects_json = renderer_result and renderer_result ~= false -- Convert string/truthy to boolean
+
+    local builder_uses_rich_display = tree_builder.should_use_rich_display_for_content(test_json, false)
+
+    -- If our classifier says it's JSON, the old functions should agree
+    local is_json_type = classifier_result.type == ContentClassifier.ContentType.JSON_API_RESPONSE
+        or classifier_result.type == ContentClassifier.ContentType.TOOL_INPUT
+
+    if is_json_type then
+        MiniTest.expect.equality(parser_detects_json, true)
+        MiniTest.expect.equality(renderer_detects_json, true) -- Now properly boolean
+        MiniTest.expect.equality(builder_uses_rich_display, true) -- JSON should use rich display
+    else
+        -- For non-JSON, at least some functions should NOT detect JSON
+        local all_agree_not_json = not parser_detects_json and not renderer_detects_json
+        MiniTest.expect.equality(all_agree_not_json or builder_uses_rich_display, true) -- Allow rich display for other reasons
+    end
+end
+
+T["Performance Requirements"] = MiniTest.new_set()
+
+T["Performance Requirements"]["classifies content under 10ms"] = function()
+    -- RED: Will fail until implementation is optimized
+    local large_json = '{"data": ' .. string.rep('[{"item": "value"},', 1000) .. "{}]}"
+
+    local start_time = vim.uv.hrtime()
+    local result = ContentClassifier.classify(large_json)
+    local end_time = vim.uv.hrtime()
+
+    local duration_ms = (end_time - start_time) / 1000000 -- Convert to milliseconds
+
+    MiniTest.expect.equality(type(result), "table")
+    MiniTest.expect.equality(duration_ms < 10, true) -- Must be under 10ms
+end
+
+return T

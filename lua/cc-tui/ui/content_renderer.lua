@@ -71,8 +71,9 @@ end
 ---@param content string Content to check
 ---@return boolean is_json Whether content is JSON
 function M.is_json_content(content)
-    local trimmed = content:match("^%s*(.-)%s*$")
-    return (trimmed:match("^{") and trimmed:match("}$")) or (trimmed:match("^%[") and trimmed:match("%]$"))
+    -- REPLACED: Use unified ContentClassifier instead of fragmented logic
+    local ContentClassifier = require("cc-tui.utils.content_classifier")
+    return ContentClassifier.is_json_content(content)
 end
 
 ---Extract file extension from file content or path hints
