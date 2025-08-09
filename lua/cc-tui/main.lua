@@ -150,10 +150,7 @@ function M.enable(scope)
             collapsed = "▶",
             empty = " ",
         },
-    })
-
-    -- Set the tree's buffer to our popup buffer
-    main_state.tree.bufnr = main_state.popup.bufnr
+    }, main_state.popup.bufnr)
 
     -- Render tree in popup buffer
     main_state.tree:render()

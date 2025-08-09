@@ -94,11 +94,13 @@ end
 ---Create a new tree component
 ---@param root_node CcTui.BaseNode Root node of the tree
 ---@param config? CcTui.TreeConfig Optional configuration
+---@param bufnr? number Optional buffer number to use instead of creating new buffer
 ---@return NuiTree tree NuiTree instance
-function M.create_tree(root_node, config)
+function M.create_tree(root_node, config, bufnr)
     vim.validate({
         root_node = { root_node, "table" },
         config = { config, "table", true },
+        bufnr = { bufnr, "number", true },
     })
 
     config = vim.tbl_deep_extend("force", default_config, config or {})
@@ -106,13 +108,14 @@ function M.create_tree(root_node, config)
     -- Convert cc-tui nodes to NuiTree nodes
     local nui_root = create_nui_node(root_node, config)
 
-    -- Create NuiTree with nodes
+    -- Create NuiTree with nodes - use provided bufnr or create new buffer
+    local tree_bufnr = bufnr or vim.api.nvim_create_buf(false, true)
     local tree = NuiTree({
         nodes = { nui_root },
-        bufnr = vim.api.nvim_create_buf(false, true),
+        bufnr = tree_bufnr,
     })
 
-    log.debug("ui.tree", string.format("Created tree with root node: %s", root_node.id))
+    log.debug("ui.tree", string.format("Created tree with root node: %s (bufnr: %d)", root_node.id, tree_bufnr))
 
     return tree
 end
@@ -289,8 +292,8 @@ function M.update_tree(tree, root_node, config)
     -- Convert new nodes
     local nui_root = create_nui_node(root_node, config)
 
-    -- Update tree nodes
-    tree.nodes = NuiTree.Nodes({ nui_root })
+    -- Update tree nodes using proper API
+    tree:set_nodes({ nui_root })
 
     -- Re-render
     tree:render()
@@ -409,7 +412,7 @@ function M.toggle_result_node(node, tree)
         local content_window = ContentRenderer.render_content(
             result_data.id,
             tool_name,
-            result_data.content,
+            result_data.content or "",
             vim.api.nvim_get_current_win()
         )
 
@@ -449,7 +452,7 @@ function M.should_use_rich_display(result_data)
 
     -- Use rich display if content is substantial
     local content = result_data.content
-    if type(content) == "string" then
+    if content and type(content) == "string" then
         local line_count = select(2, content:gsub("\n", "")) + 1
         local char_count = #content
 

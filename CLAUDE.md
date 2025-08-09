@@ -154,3 +154,7 @@ Consult the comprehensive NUI documentation for implementation details and examp
 - Plugin follows Neovim's standard plugin architecture patterns
 
 - in order to install deps we need to `rm -rf deps/` then `make deps` or else new deps won't install
+
+- The root cause of our repeated API issues was insufficient API documentation consultation. The pattern was
+  consistently implementing methods that don't exist in nui.nvim instead of checking the actual documented API
+  first.
