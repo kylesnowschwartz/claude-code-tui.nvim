@@ -2,6 +2,29 @@ local log = {}
 
 local longest_scope = 15
 
+-- Log storage for tabbed interface
+local log_entries = {}
+local max_entries = 100
+
+-- Add log entry to internal storage
+local function add_log_entry(level, scope, message)
+    local entry = {
+        timestamp = os.date("%Y-%m-%d %H:%M:%S"),
+        level = level,
+        module = scope,
+        message = message,
+    }
+
+    table.insert(log_entries, 1, entry) -- Add to front
+
+    -- Trim to max entries
+    if #log_entries > max_entries then
+        for i = max_entries + 1, #log_entries do
+            log_entries[i] = nil
+        end
+    end
+end
+
 --- prints only if debug is true.
 ---
 ---@param scope string: the scope from where this function is called.
@@ -49,7 +72,26 @@ function log.notify(scope, level, verbose, str, ...)
         end
     end
 
-    vim.notify(string.format("[cc-tui.nvim@%s] %s", scope, string.format(str, ...)), level, { title = "cc-tui.nvim" })
+    local formatted_message = string.format(str, ...)
+    local full_message = string.format("[cc-tui.nvim@%s] %s", scope, formatted_message)
+
+    -- Store debug messages in internal log instead of vim.notify for DEBUG level
+    if level == vim.log.levels.DEBUG then
+        add_log_entry("DEBUG", scope, formatted_message)
+        return -- Don't send to vim.notify to avoid message buffer interruptions
+    end
+
+    -- Store all messages in internal log
+    local level_name = "INFO"
+    if level == vim.log.levels.WARN then
+        level_name = "WARN"
+    elseif level == vim.log.levels.ERROR then
+        level_name = "ERROR"
+    end
+    add_log_entry(level_name, scope, formatted_message)
+
+    -- Still send non-debug messages to vim.notify
+    vim.notify(full_message, level, { title = "cc-tui.nvim" })
 end
 
 --- analyzes the user provided `setup` parameters and sends a message if they use a deprecated option, then gives the new option to use.
@@ -80,6 +122,16 @@ function log.warn_deprecation(options)
         log.notify("deprecated_options", vim.log.levels.WARN, true, "sorry to bother you with the breaking changes :(")
         log.notify("deprecated_options", vim.log.levels.WARN, true, "use `:h CcTui.options` to read more.")
     end
+end
+
+-- Get stored log entries for logs view
+function log.get_entries()
+    return log_entries
+end
+
+-- Clear stored log entries
+function log.clear_entries()
+    log_entries = {}
 end
 
 return log

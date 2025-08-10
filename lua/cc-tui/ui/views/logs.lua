@@ -5,6 +5,7 @@
 
 local BaseView = require("cc-tui.ui.views.base")
 local NuiLine = require("nui.line")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.UI.LogsView:CcTui.UI.View
 ---@field log_entries table[] Cached log entries
@@ -30,55 +31,11 @@ end
 
 ---Collect log entries from log system
 function LogsView:collect_log_entries()
-    -- This is a simplified implementation
-    -- In a real system, you might integrate with your actual logging system
-
-    -- For now, we'll create some sample log entries and capture future ones
-    local sample_entries = {
-        {
-            timestamp = os.date("%Y-%m-%d %H:%M:%S"),
-            level = "INFO",
-            module = "TabbedManager",
-            message = "Tabbed manager initialized successfully",
-        },
-        {
-            timestamp = os.date("%Y-%m-%d %H:%M:%S", os.time() - 30),
-            level = "DEBUG",
-            module = "ConversationBrowser",
-            message = "Loading conversations for current project",
-        },
-        {
-            timestamp = os.date("%Y-%m-%d %H:%M:%S", os.time() - 60),
-            level = "INFO",
-            module = "Main",
-            message = "CC-TUI plugin enabled",
-        },
-    }
-
-    self.log_entries = sample_entries
+    -- Get actual log entries from the log system
+    self.log_entries = log.get_entries()
 end
 
----Add new log entry
----@param level string Log level (DEBUG, INFO, WARN, ERROR)
----@param module string Module name
----@param message string Log message
-function LogsView:add_log_entry(level, module, message)
-    local entry = {
-        timestamp = os.date("%Y-%m-%d %H:%M:%S"),
-        level = level,
-        module = module,
-        message = message,
-    }
-
-    table.insert(self.log_entries, 1, entry) -- Add to front
-
-    -- Trim to max entries
-    if #self.log_entries > self.max_entries then
-        for i = self.max_entries + 1, #self.log_entries do
-            self.log_entries[i] = nil
-        end
-    end
-end
+-- Log entries are now managed by the central log system
 
 ---Get highlight group for log level
 ---@param level string Log level
@@ -165,16 +122,15 @@ end
 
 ---Refresh logs content
 function LogsView:refresh()
-    -- Add a refresh log entry
-    self:add_log_entry("DEBUG", "LogsView", "Logs view refreshed")
-
-    -- Re-collect log entries if needed
+    -- Re-collect log entries from log system
     self:collect_log_entries()
 end
 
 ---Set up logs view specific keymaps
 function LogsView:setup_keymaps(_)
     -- Could add keymaps for filtering by level, clearing logs, etc.
+    -- Example: Add 'C' key to clear logs
+    -- vim.keymap.set("n", "C", function() log.clear_entries(); self:refresh() end, { buffer = true })
     -- For now, inherit base keymaps only
 end
 
