@@ -179,7 +179,7 @@ function M:load_initial_metadata_async()
     -- Load metadata for first few conversations asynchronously
     for i = 1, initial_count do
         local conv = self.conversations[i]
-        ProjectDiscovery.enrich_conversation_metadata_async(conv, function(enriched_conv)
+        ProjectDiscovery.enrich_conversation_metadata_async(conv, function()
             loaded_count = loaded_count + 1
 
             -- Re-render when all initial metadata is loaded

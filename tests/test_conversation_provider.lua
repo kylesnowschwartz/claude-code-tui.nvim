@@ -168,9 +168,13 @@ T["get_messages"]["calls callback with parsed messages"] = function()
         provider:get_messages(function(messages)
             _G.callback_called = true
             _G.callback_messages = messages
+            _G.messages_count = messages and #messages or 0
         end)
 
-        _G.messages_count = _G.callback_messages and #_G.callback_messages or 0
+        -- Wait for async callback to complete
+        vim.wait(100, function()
+            return _G.callback_called
+        end)
 
         -- Clean up
         os.remove(test_file)
@@ -224,9 +228,13 @@ T["get_messages"]["handles file errors gracefully"] = function()
         provider:get_messages(function(messages)
             _G.callback_called = true
             _G.callback_messages = messages
+            _G.empty_messages = messages and #messages == 0
         end)
 
-        _G.empty_messages = _G.callback_messages and #_G.callback_messages == 0
+        -- Wait for async callback to complete
+        vim.wait(100, function()
+            return _G.callback_called
+        end)
 
         -- Restore original notify
         vim.notify = original_notify

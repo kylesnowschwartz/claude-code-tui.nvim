@@ -86,16 +86,24 @@ function M:get_messages(callback)
         callback = { callback, "function" },
     })
 
-    -- Load conversation synchronously (since we're reading from disk)
-    local messages, error_msg = self:load_conversation()
-
-    if error_msg then
-        -- Return empty messages on error
-        vim.notify(error_msg, vim.log.levels.ERROR)
-        callback({})
-    else
-        callback(messages)
+    -- Return cached messages immediately if available
+    if self.messages then
+        callback(self.messages)
+        return
     end
+
+    -- Load conversation asynchronously to prevent UI blocking
+    vim.schedule(function()
+        local messages, error_msg = self:load_conversation()
+
+        if error_msg then
+            -- Return empty messages on error
+            vim.notify(error_msg, vim.log.levels.ERROR)
+            callback({})
+        else
+            callback(messages)
+        end
+    end)
 end
 
 ---Start provider (no-op for static conversation files)
