@@ -12,6 +12,18 @@ function log.debug(scope, str, ...)
     return log.notify(scope, vim.log.levels.DEBUG, false, str, ...)
 end
 
+--- Safely prints debug messages only when the plugin is loaded and debug is enabled.
+--- Eliminates the need for repeated `_G.CcTui and _G.CcTui.config and _G.CcTui.config.debug` checks.
+---
+---@param scope string: the scope from where this function is called.
+---@param str string: the formatted string.
+---@param ... any: the arguments of the formatted string.
+function log.debug_safe(scope, str, ...)
+    if _G.CcTui and _G.CcTui.config and _G.CcTui.config.debug then
+        log.debug(scope, str, ...)
+    end
+end
+
 --- prints only if debug is true.
 ---
 ---@param scope string: the scope from where this function is called.

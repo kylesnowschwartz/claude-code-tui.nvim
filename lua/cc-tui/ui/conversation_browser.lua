@@ -18,13 +18,23 @@ local log = require("cc-tui.util.log")
 ---@field show_metadata boolean Whether to show metadata for each conversation
 ---@field on_select_callback function Callback when conversation is selected
 ---@field keymaps table<string, function> Keymap handlers
+-- UI Constants
+local DEFAULTS = {
+    DEFAULT_HEIGHT = "80%",
+    MIN_WINDOW_WIDTH = 80,
+    MIN_WINDOW_HEIGHT = 10,
+    HEADER_FOOTER_RESERVE = 6,
+    LINE_PREFIX_RESERVE = 10,
+    METADATA_EXTRA_RESERVE = 40,
+}
+
 local M = {}
 M.__index = M
 
 ---@class CcTui.ConversationBrowserOptions
 ---@field on_select function(conversation_path: string) Callback when conversation selected
 ---@field width? number|string Width of browser (default: "50%")
----@field height? number|string Height of browser (default: "80%")
+---@field height? number|string Height of browser (default: DEFAULTS.DEFAULT_HEIGHT)
 
 ---Create highlight groups for the browser
 local function setup_highlights()
@@ -66,7 +76,7 @@ function M.new(opts)
         return Split({
             relative = "editor",
             position = "top",
-            size = opts.height or "80%",
+            size = opts.height or DEFAULTS.DEFAULT_HEIGHT,
             border = {
                 style = "rounded",
                 text = {
@@ -150,24 +160,62 @@ function M:load_conversations()
     -- Get all conversations
     self.conversations = ProjectDiscovery.list_conversations(self.project_name)
 
-    -- Enrich first few with metadata for initial display
-    for i = 1, math.min(5, #self.conversations) do
-        ProjectDiscovery.enrich_conversation_metadata(self.conversations[i])
-    end
-
     -- Reset current index if out of bounds
     if self.current_index > #self.conversations then
         self.current_index = 1
     end
 
+    -- Enrich first few with metadata for initial display (async for UI responsiveness)
+    self:load_initial_metadata_async()
+
     log.debug("ConversationBrowser", string.format("Loaded %d conversations", #self.conversations))
+end
+
+---Asynchronously load metadata for initial conversations to display
+function M:load_initial_metadata_async()
+    local initial_count = math.min(5, #self.conversations)
+    local loaded_count = 0
+
+    -- Load metadata for first few conversations asynchronously
+    for i = 1, initial_count do
+        local conv = self.conversations[i]
+        ProjectDiscovery.enrich_conversation_metadata_async(conv, function(enriched_conv)
+            loaded_count = loaded_count + 1
+
+            -- Re-render when all initial metadata is loaded
+            if loaded_count == initial_count then
+                vim.schedule(function()
+                    if self.split and self.split.bufnr then
+                        self:render()
+                    end
+                end)
+            end
+        end)
+    end
+end
+
+---Asynchronously load metadata for a single conversation and re-render
+---@param conv CcTui.ConversationMetadata Conversation to enrich
+---@param index number Index in conversations array
+function M:load_conversation_metadata_async(conv, index)
+    ProjectDiscovery.enrich_conversation_metadata_async(conv, function(enriched_conv)
+        -- Update the conversation in place
+        self.conversations[index] = enriched_conv
+
+        -- Re-render to show the updated metadata
+        vim.schedule(function()
+            if self.split and self.split.bufnr then
+                self:render()
+            end
+        end)
+    end)
 end
 
 ---Create conversation list view
 ---@return NuiLine[] lines The conversation list lines
 function M:create_conversation_list()
     local lines = {}
-    local width = math.max(vim.api.nvim_win_get_width(self.split.winid or 0), 80)
+    local width = math.max(vim.api.nvim_win_get_width(self.split.winid or 0), DEFAULTS.MIN_WINDOW_WIDTH)
 
     if #self.conversations == 0 then
         local empty_line = NuiLine()
@@ -184,7 +232,10 @@ function M:create_conversation_list()
     end
 
     -- Calculate scrolling window
-    local window_height = math.max(10, vim.api.nvim_win_get_height(self.split.winid or 0) - 6) -- Reserve space for headers/help
+    local window_height = math.max(
+        DEFAULTS.MIN_WINDOW_HEIGHT,
+        vim.api.nvim_win_get_height(self.split.winid or 0) - DEFAULTS.HEADER_FOOTER_RESERVE
+    ) -- Reserve space for headers/help
     local start_idx = 1
     local end_idx = #self.conversations
 
@@ -204,9 +255,9 @@ function M:create_conversation_list()
     for i = start_idx, end_idx do
         local conv = self.conversations[i]
 
-        -- Lazy load metadata if needed
+        -- Lazy load metadata if needed (async to prevent UI blocking)
         if not conv.title then
-            ProjectDiscovery.enrich_conversation_metadata(conv)
+            self:load_conversation_metadata_async(conv, i)
         end
 
         local line = NuiLine()
@@ -222,9 +273,9 @@ function M:create_conversation_list()
         title = title:gsub("\n", " ") -- Remove newlines
 
         -- Truncate title if too long
-        local available_width = width - 10 -- Reserve space for prefix, number, etc.
+        local available_width = width - DEFAULTS.LINE_PREFIX_RESERVE -- Reserve space for prefix, number, etc.
         if self.show_metadata then
-            available_width = available_width - 40 -- More space needed for metadata
+            available_width = available_width - DEFAULTS.METADATA_EXTRA_RESERVE -- More space needed for metadata
         end
 
         if #title > available_width then
@@ -290,7 +341,7 @@ function M:render()
     vim.api.nvim_buf_set_option(self.split.bufnr, "modifiable", true)
 
     local lines = {}
-    local width = math.max(vim.api.nvim_win_get_width(self.split.winid or 0), 80)
+    local width = math.max(vim.api.nvim_win_get_width(self.split.winid or 0), DEFAULTS.MIN_WINDOW_WIDTH)
 
     -- Add header
     table.insert(lines, NuiLine())
@@ -418,6 +469,7 @@ end
 ---Close the browser
 function M:close()
     if self.split then
+        -- Buffer-local keymaps are automatically cleaned up when buffer is unmounted
         self.split:unmount()
     end
 end

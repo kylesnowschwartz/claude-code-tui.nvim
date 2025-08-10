@@ -5,6 +5,7 @@
 
 local DataProvider = require("cc-tui.providers.base")
 local Parser = require("cc-tui.parser.stream")
+local PathSecurity = require("cc-tui.util.path_security")
 local log = require("cc-tui.util.log")
 
 ---@class CcTui.ConversationProvider : CcTui.DataProvider
@@ -20,6 +21,12 @@ function M.new(file_path)
         file_path = { file_path, "string" },
     })
 
+    -- Validate path security before creating provider
+    local safe, err = PathSecurity.is_safe_claude_path(file_path)
+    if not safe then
+        error("Unsafe conversation file path: " .. (err or "unknown security error"))
+    end
+
     -- Create base provider instance
     local provider = DataProvider:new()
 
@@ -29,7 +36,8 @@ function M.new(file_path)
 
     setmetatable(provider, { __index = M })
 
-    log.debug("ConversationProvider", string.format("Created provider for: %s", file_path))
+    -- Safe logging that doesn't fail if CcTui not initialized
+    pcall(log.debug, "ConversationProvider", string.format("Created provider for: %s", file_path))
 
     return provider
 end
@@ -43,28 +51,12 @@ function M:load_conversation()
         return self.messages, nil
     end
 
-    -- Check file exists
-    if vim.fn.filereadable(self.file_path) == 0 then
-        local error_msg = string.format("Conversation file not found: %s", self.file_path)
+    -- Read file content using secure utility
+    local lines, error_msg = PathSecurity.read_conversation_file_safe(self.file_path)
+    if error_msg then
         log.debug("ConversationProvider", error_msg)
         return {}, error_msg
     end
-
-    -- Read file content
-    local file = io.open(self.file_path, "r")
-    if not file then
-        local error_msg = string.format("Failed to open conversation file: %s", self.file_path)
-        log.debug("ConversationProvider", error_msg)
-        return {}, error_msg
-    end
-
-    local lines = {}
-    for line in file:lines() do
-        if line and line ~= "" then
-            table.insert(lines, line)
-        end
-    end
-    file:close()
 
     log.debug("ConversationProvider", string.format("Read %d lines from %s", #lines, self.file_path))
 
@@ -73,9 +65,9 @@ function M:load_conversation()
 
     -- Handle parsing errors
     if errors and #errors > 0 then
-        local error_msg = string.format("Parsing errors in %s: %s", self.file_path, table.concat(errors, "; "))
-        log.debug("ConversationProvider", error_msg)
-        return {}, error_msg
+        local parse_error_msg = string.format("Parsing errors in %s: %s", self.file_path, table.concat(errors, "; "))
+        log.debug("ConversationProvider", parse_error_msg)
+        return {}, parse_error_msg
     end
 
     -- Cache the messages
