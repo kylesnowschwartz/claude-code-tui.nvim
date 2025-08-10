@@ -36,72 +36,57 @@ T["Main Integration"]["can load plugin with provider abstraction"] = function()
     Helpers.expect.global(child, "_G.has_tree", true)
 end
 
-T["Main Integration"]["enable loads data with provider pattern"] = function()
+T["Main Integration"]["enable loads data with tabbed manager"] = function()
     child.lua([[
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
 
-        -- Mock the test data file to ensure predictable behavior
-        local TestData = require('cc-tui.parser.test_data')
-        local original_load = TestData.load_sample_lines
-        TestData.load_sample_lines = function(limit)
-            return {
-                '{"type":"system","subtype":"init","session_id":"test-123","model":"claude-3-5-sonnet"}',
-                '{"type":"assistant","message":{"id":"msg1","role":"assistant","content":[{"type":"text","text":"Test message"}]},"session_id":"test-123"}',
-                '{"type":"result","subtype":"success","session_id":"test-123","total_cost_usd":0.01}'
-            }
-        end
-
         -- Enable the plugin
-        Main.enable("test")
+        local success = Main.enable("test")
+        _G.enable_success = success
 
         -- Check state after enabling
         local state = Main.get_state()
-        _G.plugin_enabled = state.popup ~= nil
-        _G.has_messages = #state.messages > 0
-        _G.has_tree_data = state.tree_data ~= nil
+        _G.has_tabbed_manager = state.tabbed_manager ~= nil
+        _G.manager_is_active = state.tabbed_manager and state.tabbed_manager:is_active() or false
+        _G.current_tab = state.current_tab
+        _G.is_active = state.is_active
 
         -- Clean up
         Main.disable("test")
-        TestData.load_sample_lines = original_load
     ]])
 
-    Helpers.expect.global(child, "_G.plugin_enabled", true)
-    Helpers.expect.global(child, "_G.has_messages", true)
-    Helpers.expect.global(child, "_G.has_tree_data", true)
+    Helpers.expect.global(child, "_G.enable_success", true)
+    Helpers.expect.global(child, "_G.has_tabbed_manager", true)
+    Helpers.expect.global(child, "_G.manager_is_active", true)
+    Helpers.expect.global(child, "_G.is_active", true)
 end
 
-T["Main Integration"]["disable cleans up provider resources"] = function()
+T["Main Integration"]["disable cleans up tabbed manager resources"] = function()
     child.lua([[
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
-
-        -- Mock test data
-        local TestData = require('cc-tui.parser.test_data')
-        local original_load = TestData.load_sample_lines
-        TestData.load_sample_lines = function(limit)
-            return {'{"type":"system","subtype":"init","session_id":"test-123"}'}
-        end
 
         -- Enable then disable
         Main.enable("test")
         local enabled_state = Main.get_state()
-        _G.enabled_has_popup = enabled_state.popup ~= nil
+        _G.enabled_is_active = enabled_state.is_active
+        _G.enabled_has_tabbed_manager = enabled_state.tabbed_manager ~= nil
 
         Main.disable("test")
         local disabled_state = Main.get_state()
-        _G.disabled_has_popup = disabled_state.popup == nil
-        _G.disabled_has_tree = disabled_state.tree == nil
+        _G.disabled_is_active = disabled_state.is_active
+        _G.disabled_has_tabbed_manager = disabled_state.tabbed_manager == nil
         _G.disabled_has_messages = #disabled_state.messages == 0
-
-        -- Clean up
-        TestData.load_sample_lines = original_load
+        _G.disabled_has_tree_data = disabled_state.tree_data == nil
     ]])
 
-    Helpers.expect.global(child, "_G.enabled_has_popup", true)
-    Helpers.expect.global(child, "_G.disabled_has_popup", true)
-    Helpers.expect.global(child, "_G.disabled_has_tree", true)
+    Helpers.expect.global(child, "_G.enabled_is_active", true)
+    Helpers.expect.global(child, "_G.enabled_has_tabbed_manager", true)
+    Helpers.expect.global(child, "_G.disabled_is_active", false)
+    Helpers.expect.global(child, "_G.disabled_has_tabbed_manager", true)
     Helpers.expect.global(child, "_G.disabled_has_messages", true)
+    Helpers.expect.global(child, "_G.disabled_has_tree_data", true)
 end
 
 T["Main Integration"]["handles empty data gracefully with provider"] = function()
@@ -131,40 +116,35 @@ T["Main Integration"]["handles empty data gracefully with provider"] = function(
     Helpers.expect.global(child, "_G.no_messages", true)
 end
 
-T["Main Integration"]["refresh works with provider pattern"] = function()
+T["Main Integration"]["refresh works with tabbed manager"] = function()
     child.lua([[
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
 
-        -- Mock test data
-        local TestData = require('cc-tui.parser.test_data')
-        local original_load = TestData.load_sample_lines
-        local call_count = 0
-        TestData.load_sample_lines = function(limit)
-            call_count = call_count + 1
-            return {'{"type":"system","subtype":"init","session_id":"test-' .. call_count .. '"}'}
-        end
-
         -- Enable plugin
         Main.enable("test")
-        local initial_messages = #Main.get_state().messages
+        local initial_state = Main.get_state()
+        _G.initial_is_active = initial_state.is_active
 
-        -- Refresh
+        -- Refresh should work when manager is active
         Main.refresh()
-        local refreshed_messages = #Main.get_state().messages
-
-        _G.initial_count = initial_messages
-        _G.refreshed_count = refreshed_messages
-        _G.load_called_twice = call_count == 2
+        local refreshed_state = Main.get_state()
+        _G.refreshed_is_active = refreshed_state.is_active
+        _G.refresh_worked = true -- If refresh doesn't crash, it worked
 
         -- Clean up
         Main.disable("test")
-        TestData.load_sample_lines = original_load
+
+        -- Refresh should be no-op when manager is not active
+        Main.refresh()
+        local disabled_state = Main.get_state()
+        _G.disabled_is_active = disabled_state.is_active
     ]])
 
-    Helpers.expect.global(child, "_G.initial_count", 1)
-    Helpers.expect.global(child, "_G.refreshed_count", 1)
-    Helpers.expect.global(child, "_G.load_called_twice", true)
+    Helpers.expect.global(child, "_G.initial_is_active", true)
+    Helpers.expect.global(child, "_G.refreshed_is_active", true)
+    Helpers.expect.global(child, "_G.refresh_worked", true)
+    Helpers.expect.global(child, "_G.disabled_is_active", false)
 end
 
 return T

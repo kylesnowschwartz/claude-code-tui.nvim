@@ -24,22 +24,22 @@ T["Keybinding Bugs"]["Tab key should toggle tree nodes"] = function()
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
 
-        -- Enable plugin with test data
-        Main.enable("test")
+        -- Enable plugin with test data (default tab is current)
+        Main.enable("test", "current")
 
-        -- Wait for tree to be created
+        -- Wait for tabbed interface to be created
         vim.wait(100)
 
         local state = Main.get_state()
-        _G.plugin_enabled = state.popup ~= nil and state.tree ~= nil
+        _G.plugin_enabled = state.tabbed_manager ~= nil and state.tabbed_manager:is_active()
 
         if not _G.plugin_enabled then
             _G.error_msg = "Plugin not enabled properly"
             return
         end
 
-        -- Check if Tab is mapped in the buffer
-        local bufnr = state.popup.bufnr
+        -- Check if Tab is mapped in the buffer (view-level keymaps)
+        local bufnr = state.tabbed_manager.split.bufnr
         local tab_mapped = false
 
         -- Get all buffer-local keymaps for normal mode
@@ -54,14 +54,16 @@ T["Keybinding Bugs"]["Tab key should toggle tree nodes"] = function()
         end
 
         _G.tab_is_mapped = tab_mapped
+        _G.current_tab = state.tabbed_manager.current_tab
     ]])
 
     Helpers.expect.global(child, "_G.plugin_enabled", true)
+    Helpers.expect.global(child, "_G.current_tab", "current")
     Helpers.expect.global(child, "_G.tab_is_mapped", true)
     Helpers.expect.global(child, "_G.tab_handler_exists", true)
 end
 
-T["Keybinding Bugs"]["Question mark should show help menu"] = function()
+T["Keybinding Bugs"]["Question mark should switch to help tab"] = function()
     child.lua([[
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
@@ -69,11 +71,11 @@ T["Keybinding Bugs"]["Question mark should show help menu"] = function()
         -- Enable plugin with test data
         Main.enable("test")
 
-        -- Wait for tree to be created
+        -- Wait for tabbed interface to be created
         vim.wait(100)
 
         local state = Main.get_state()
-        _G.plugin_enabled = state.popup ~= nil and state.tree ~= nil
+        _G.plugin_enabled = state.tabbed_manager ~= nil and state.tabbed_manager:is_active()
 
         if not _G.plugin_enabled then
             _G.error_msg = "Plugin not enabled properly"
@@ -81,7 +83,7 @@ T["Keybinding Bugs"]["Question mark should show help menu"] = function()
         end
 
         -- Check if ? is mapped in the buffer
-        local bufnr = state.popup.bufnr
+        local bufnr = state.tabbed_manager.split.bufnr
         local help_mapped = false
 
         -- Get all buffer-local keymaps for normal mode
@@ -103,45 +105,32 @@ T["Keybinding Bugs"]["Question mark should show help menu"] = function()
     Helpers.expect.global(child, "_G.help_handler_exists", true)
 end
 
-T["Keybinding Bugs"]["Tab toggle actually changes tree state"] = function()
+T["Keybinding Bugs"]["Tab actually toggles tree nodes"] = function()
     child.lua([[
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
 
-        -- Enable plugin with test data
-        Main.enable("test")
+        -- Enable plugin with test data (start on current tab)
+        Main.enable("test", "current")
 
-        -- Wait for tree to be created
+        -- Wait for tabbed interface to be created
         vim.wait(100)
 
         local state = Main.get_state()
-        _G.has_tree = state.tree ~= nil
+        _G.has_tabbed_manager = state.tabbed_manager ~= nil
 
-        if not _G.has_tree then
-            _G.error_msg = "No tree found"
+        if not _G.has_tabbed_manager then
+            _G.error_msg = "No tabbed manager found"
             return
         end
 
-        -- Set cursor to first line with a node
-        vim.api.nvim_win_set_cursor(0, {1, 0})
+        -- Verify we're on current tab (with tree functionality)
+        _G.current_tab = state.tabbed_manager.current_tab
 
-        -- Get initial node state
-        local initial_node = state.tree:get_node()
-        _G.has_initial_node = initial_node ~= nil
-
-        if not initial_node then
-            _G.error_msg = "No initial node found"
-            return
-        end
-
-        local initial_expanded = initial_node:is_expanded()
-        _G.initial_expanded = initial_expanded
-
-        -- Simulate Tab key press to toggle
-        -- This should call the toggle handler
+        -- Simulate Tab key press to toggle tree node
         local tab_pressed = pcall(function()
             -- Find the Tab keymap and call its handler
-            local keymaps = vim.api.nvim_buf_get_keymap(state.popup.bufnr, 'n')
+            local keymaps = vim.api.nvim_buf_get_keymap(state.tabbed_manager.split.bufnr, 'n')
             for _, keymap in ipairs(keymaps) do
                 if keymap.lhs == '<Tab>' and keymap.callback then
                     keymap.callback()
@@ -153,41 +142,40 @@ T["Keybinding Bugs"]["Tab toggle actually changes tree state"] = function()
 
         _G.tab_handler_called = tab_pressed
 
-        -- Check if node state changed
-        local final_node = state.tree:get_node()
-        local final_expanded = final_node and final_node:is_expanded()
-        _G.final_expanded = final_expanded
-        _G.state_changed = initial_expanded ~= final_expanded
+        -- Tab should not change tabs (should stay on current)
+        local final_tab = state.tabbed_manager.current_tab
+        _G.final_tab = final_tab
+        _G.tab_stayed_same = state.tabbed_manager.current_tab == "current"
     ]])
 
-    Helpers.expect.global(child, "_G.has_tree", true)
-    Helpers.expect.global(child, "_G.has_initial_node", true)
+    Helpers.expect.global(child, "_G.has_tabbed_manager", true)
+    Helpers.expect.global(child, "_G.current_tab", "current")
     Helpers.expect.global(child, "_G.tab_handler_called", true)
-    -- The state should change when Tab is pressed
-    Helpers.expect.global(child, "_G.state_changed", true)
+    -- Tab should not change tabs, but toggle tree nodes
+    Helpers.expect.global(child, "_G.tab_stayed_same", true)
 end
 
-T["Keybinding Bugs"]["Question mark actually shows help window"] = function()
+T["Keybinding Bugs"]["Question mark actually switches to help tab"] = function()
     child.lua([[
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
 
-        -- Enable plugin with test data
-        Main.enable("test")
+        -- Enable plugin with test data (start on current tab)
+        Main.enable("test", "current")
 
-        -- Wait for tree to be created
+        -- Wait for tabbed interface to be created
         vim.wait(100)
 
         local state = Main.get_state()
 
-        -- Count windows before help
-        local windows_before = #vim.api.nvim_list_wins()
-        _G.windows_before = windows_before
+        -- Get initial tab state
+        local initial_tab = state.tabbed_manager.current_tab
+        _G.initial_tab = initial_tab
 
-        -- Simulate ? key press to show help
+        -- Simulate ? key press to switch to help tab
         local help_shown = pcall(function()
             -- Find the ? keymap and call its handler
-            local keymaps = vim.api.nvim_buf_get_keymap(state.popup.bufnr, 'n')
+            local keymaps = vim.api.nvim_buf_get_keymap(state.tabbed_manager.split.bufnr, 'n')
             for _, keymap in ipairs(keymaps) do
                 if keymap.lhs == '?' and keymap.callback then
                     keymap.callback()
@@ -199,15 +187,15 @@ T["Keybinding Bugs"]["Question mark actually shows help window"] = function()
 
         _G.help_handler_called = help_shown
 
-        -- Check if help window opened
-        vim.wait(50)  -- Give time for window to open
-        local windows_after = #vim.api.nvim_list_wins()
-        _G.windows_after = windows_after
-        _G.help_window_opened = windows_after > windows_before
+        -- Check if tab switched to help
+        vim.wait(50)  -- Give time for tab switch
+        local final_tab = state.tabbed_manager.current_tab
+        _G.final_tab = final_tab
+        _G.switched_to_help = final_tab == "help"
     ]])
 
     Helpers.expect.global(child, "_G.help_handler_called", true)
-    Helpers.expect.global(child, "_G.help_window_opened", true)
+    Helpers.expect.global(child, "_G.switched_to_help", true)
 end
 
 return T

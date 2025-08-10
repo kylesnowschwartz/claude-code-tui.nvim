@@ -33,6 +33,9 @@ function CurrentView.new(manager)
     -- Load initial conversation data
     self:load_conversation_data()
 
+    -- Setup keymaps
+    self:setup_keymaps()
+
     return self
 end
 
@@ -304,6 +307,9 @@ function CurrentView:setup_keymaps()
             self:toggle_selected_node()
         end,
         ["<CR>"] = function()
+            self:toggle_selected_node()
+        end,
+        ["<Tab>"] = function()
             self:toggle_selected_node()
         end,
         ["h"] = function()

@@ -199,12 +199,12 @@ function TabbedManager:setup_keymaps()
         end
     end
 
-    -- Secondary navigation
-    self.keymaps["<Tab>"] = function()
+    -- Secondary navigation (removed Tab key to avoid conflicts with tree toggling)
+    self.keymaps["]"] = function()
         self:cycle_tab_forward()
     end
 
-    self.keymaps["<S-Tab>"] = function()
+    self.keymaps["["] = function()
         self:cycle_tab_backward()
     end
 
@@ -274,6 +274,48 @@ function TabbedManager:load_view(tab_id)
     return view_instance
 end
 
+---Apply view-specific keymaps for current tab
+function TabbedManager:apply_view_keymaps()
+    if not self.split or not self.split.bufnr then
+        return
+    end
+
+    -- Clear existing view keymaps
+    if self._current_view_keymaps then
+        for key, _ in pairs(self._current_view_keymaps) do
+            pcall(vim.keymap.del, "n", key, { buffer = self.split.bufnr })
+        end
+    end
+
+    -- Apply current view keymaps
+    local current_view = self.views[self.current_tab]
+    if current_view then
+        -- Initialize view keymaps if not done
+        if type(current_view.setup_keymaps) == "function" and not current_view.keymaps then
+            current_view:setup_keymaps()
+        end
+
+        -- Apply view keymaps
+        if current_view.keymaps then
+            self._current_view_keymaps = {}
+            for key, handler in pairs(current_view.keymaps) do
+                -- Skip keys that conflict with global keymaps
+                if not self.keymaps[key] then
+                    vim.keymap.set("n", key, function()
+                        handler()
+                        self:render() -- Re-render after view action
+                    end, {
+                        buffer = self.split.bufnr,
+                        noremap = true,
+                        silent = true,
+                    })
+                    self._current_view_keymaps[key] = true
+                end
+            end
+        end
+    end
+end
+
 ---Switch to specified tab
 ---@param tab_id string Tab identifier to switch to
 function TabbedManager:switch_to_tab(tab_id)
@@ -298,6 +340,7 @@ function TabbedManager:switch_to_tab(tab_id)
     -- Switch tab and refresh display
     self.current_tab = tab_id
     self:render()
+    self:apply_view_keymaps()
 
     log.debug("TabbedManager", string.format("Switched to tab: %s", tab_id))
 end
@@ -419,8 +462,9 @@ function TabbedManager:show()
         })
     end
 
-    -- Initial render
+    -- Initial render and apply view keymaps
     self:render()
+    self:apply_view_keymaps()
 
     log.debug("TabbedManager", string.format("Showed tabbed manager, active tab: %s", self.current_tab))
 end
