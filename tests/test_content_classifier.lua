@@ -150,10 +150,6 @@ T["Consistency Validation"]["replaces all existing detection functions"] = funct
     -- Test that our classifier works correctly
     local classifier_result = ContentClassifier.classify(test_json)
 
-    -- Load the remaining detection functions (parser and tree_builder still exist)
-    local parser_content = require("cc-tui.parser.content")
-    local tree_builder = require("cc-tui.models.tree_builder")
-
     -- Remaining old functions should agree with our classifier for JSON
     local parser_detects_json = ContentClassifier.is_json_content(test_json)
     local builder_uses_rich_display = ContentClassifier.should_use_rich_display(test_json, false)

@@ -3,7 +3,6 @@
 --- Displays hierarchical tree of messages, tools, and results
 ---@brief ]]
 
-local ContentClassifier = require("cc-tui.utils.content_classifier")
 local ContentRenderer = require("cc-tui.ui.content_renderer")
 local Keymaps = require("cc-tui.keymaps")
 local NuiLine = require("nui.line")
@@ -410,17 +409,9 @@ function M.toggle_result_node(node, tree)
         return
     end
 
-    -- Determine if content should be rendered in popup vs inline
-    local should_use_rich_display
-    if result_data.structured_content then
-        should_use_rich_display = ContentClassifier.should_use_rich_display_structured(
-            result_data.structured_content,
-            result_data.content or ""
-        )
-    else
-        should_use_rich_display =
-            ContentClassifier.should_use_rich_display(result_data.content or "", result_data.is_error)
-    end
+    -- Use display decision computed during tree construction (eliminates duplication)
+    -- This maintains single source of truth principle from Phase 2 refactoring
+    local should_use_rich_display = result_data.use_rich_display
 
     if should_use_rich_display then
         -- Use rich content display via ContentRenderer
@@ -433,7 +424,7 @@ function M.toggle_result_node(node, tree)
             result_data.content or "",
             vim.api.nvim_get_current_win(),
             result_data.structured_content,
-            nil -- TODO: Thread stream_context from Tree UI for enhanced classification
+            result_data.stream_context -- 🚀 ACTIVATED: Stream context threading for enhanced classification
         )
 
         if content_window then
