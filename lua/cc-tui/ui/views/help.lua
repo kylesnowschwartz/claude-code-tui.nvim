@@ -146,7 +146,7 @@ function HelpView:render(_)
 end
 
 ---Refresh help content (no-op since help is static)
-function HelpView:refresh(_)
+function HelpView:refresh()
     -- Help content is static, no refresh needed
 end
 

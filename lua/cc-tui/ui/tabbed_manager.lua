@@ -222,7 +222,7 @@ function TabbedManager:setup_keymaps()
 end
 
 ---Initialize view instances (lazy loading)
-function TabbedManager:init_views(_)
+function TabbedManager:init_views()
     -- Views will be loaded on demand in switch_to_tab()
     -- This prevents loading all views upfront and improves startup time
     log.debug("TabbedManager", "View initialization set up for lazy loading")

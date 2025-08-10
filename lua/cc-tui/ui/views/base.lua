@@ -35,7 +35,7 @@ function BaseView.new(manager, view_id)
 end
 
 ---Setup view-specific keymaps (override in subclasses)
-function BaseView:setup_keymaps(_)
+function BaseView:setup_keymaps()
     -- Default implementation - override in subclasses
     -- Views can add their own keymaps here
 end
@@ -91,7 +91,7 @@ end
 ---@param width number Available width
 ---@param highlight? string Optional highlight group
 ---@return NuiLine line Centered text line
-function BaseView:create_centered_line(_, text, width, highlight)
+function BaseView.create_centered_line(text, width, highlight)
     vim.validate({
         text = { text, "string" },
         width = { width, "number" },
@@ -112,7 +112,7 @@ end
 ---@param padding? number Left padding (default: 2)
 ---@param highlight? string Optional highlight group
 ---@return NuiLine line Padded text line
-function BaseView:create_padded_line(_, text, padding, highlight)
+function BaseView.create_padded_line(text, padding, highlight)
     vim.validate({
         text = { text, "string" },
         padding = { padding, "number", true },
@@ -133,7 +133,7 @@ end
 ---@param char? string Separator character (default: "─")
 ---@param highlight? string Optional highlight group
 ---@return NuiLine line Separator line
-function BaseView:create_separator_line(_, width, char, highlight)
+function BaseView.create_separator_line(width, char, highlight)
     vim.validate({
         width = { width, "number" },
         char = { char, "string", true },
@@ -150,7 +150,7 @@ end
 
 ---Helper to create empty line
 ---@return NuiLine line Empty line
-function BaseView:create_empty_line(_)
+function BaseView.create_empty_line()
     return NuiLine()
 end
 
@@ -159,7 +159,7 @@ end
 ---@param max_width number Maximum width
 ---@param ellipsis? string Ellipsis string (default: "...")
 ---@return string text Truncated text
-function BaseView:truncate_text(_, text, max_width, ellipsis)
+function BaseView.truncate_text(text, max_width, ellipsis)
     vim.validate({
         text = { text, "string" },
         max_width = { max_width, "number" },
