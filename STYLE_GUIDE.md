@@ -2,6 +2,25 @@
 
 *Adopted from MCPHub.nvim's excellent code patterns*
 
+## UI Component Guidelines
+
+### NUI.nvim Usage
+- **ALWAYS** use nui.nvim components as the foundation for UI elements
+- **STUDY** MCPHub.nvim implementation patterns for UI excellence
+- **CUSTOMIZE** nui components following MCPHub patterns when needed for enhanced UX
+
+### MCPHub-Inspired Patterns
+- **Tab bars**: Use NuiLine with custom highlighting (see MCPHub's `Text.create_tab_bar`)
+- **List views**: Implement interactive lines with proper cursor tracking
+- **Borders**: Use NUI borders with custom titles and styling
+- **Text rendering**: Follow MCPHub's NuiLine patterns for rich text display
+- **Keymaps**: Implement view-specific keymaps with clear action handlers
+
+### Component Selection Priority
+1. Use stock nui.nvim components when they meet requirements
+2. Extend nui components with MCPHub patterns for enhanced functionality
+3. Create custom components only when necessary, following MCPHub architecture
+
 ## Core Principles
 
 - **Consistency over personal preference** - Follow established patterns religiously

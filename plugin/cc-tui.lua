@@ -16,6 +16,10 @@ else
         require("cc-tui").toggle()
     end, {})
 
+    vim.api.nvim_create_user_command("CcTuiBrowse", function()
+        require("cc-tui").browse()
+    end, { desc = "Browse Claude conversations in current project" })
+
     vim.api.nvim_create_user_command("CcTuiReload", function()
         -- Preserve current config
         local current_config = _G.CcTui and _G.CcTui.config or {}
@@ -36,4 +40,5 @@ end
 
 -- Development keymaps
 vim.keymap.set("n", "<leader>Cct", "<cmd>CcTui<cr>", { desc = "Toggle cc-tui" })
+vim.keymap.set("n", "<leader>Ccb", "<cmd>CcTuiBrowse<cr>", { desc = "Browse Claude conversations" })
 vim.keymap.set("n", "<leader>Ccr", "<cmd>CcTuiReload<cr>", { desc = "Reload cc-tui modules" })

@@ -3,6 +3,8 @@
 --- Manages the plugin's core functionality and UI state
 ---@brief ]]
 
+local ConversationBrowser = require("cc-tui.ui.conversation_browser")
+local ConversationProvider = require("cc-tui.providers.conversation")
 local Parser = require("cc-tui.parser.stream")
 local Popup = require("nui.popup")
 local StaticProvider = require("cc-tui.providers.static")
@@ -47,6 +49,66 @@ function M.toggle(scope)
 
     log.debug(scope, "cc-tui is now enabled!")
     M.enable(scope)
+end
+
+---Load and display a specific conversation file
+---@param conversation_path string Path to conversation JSONL file
+---@return nil
+local function load_conversation(conversation_path)
+    log.debug("main", string.format("Loading conversation: %s", conversation_path))
+
+    -- Create conversation provider
+    local provider = ConversationProvider.new(conversation_path)
+
+    -- Load messages
+    provider:get_messages(function(messages)
+        if #messages == 0 then
+            vim.notify("Failed to load conversation", vim.log.levels.ERROR)
+            return
+        end
+
+        -- Store messages
+        main_state.messages = messages
+
+        -- Get session info
+        local session_info = Parser.get_session_info(messages)
+
+        -- Build tree
+        local root = TreeBuilder.build_tree(messages, session_info)
+        main_state.tree_data = root
+
+        -- If popup exists, update it
+        if main_state.popup and main_state.tree then
+            -- Update title with conversation name
+            local conv_name = vim.fn.fnamemodify(conversation_path, ":t:r")
+            local title = string.format(" CC-TUI [%s] ", conv_name)
+
+            -- Update border text
+            main_state.popup.border:set_text("top", title, "center")
+
+            -- Recreate tree with new data
+            main_state.tree = Tree.create_tree(root, {
+                icons = {
+                    expanded = "▼",
+                    collapsed = "▶",
+                    empty = " ",
+                },
+            }, main_state.popup.bufnr)
+
+            -- Re-render
+            main_state.tree:render()
+
+            -- Re-setup keybindings
+            Tree.setup_keybindings(main_state.tree, main_state.popup.bufnr, {
+                on_close = function()
+                    M.disable("tree_keymap")
+                end,
+            })
+        else
+            -- Enable plugin with new data
+            M.enable("conversation_load")
+        end
+    end)
 end
 
 ---Load and parse test data using StaticProvider
@@ -435,6 +497,31 @@ end
 ---@return CcTui.MainState state
 function M.get_state()
     return main_state
+end
+
+---Browse Claude conversations in the current project
+---@return nil
+function M.browse()
+    log.debug("main", "Opening conversation browser")
+
+    -- Create browser with callback to load selected conversation
+    local browser, err = ConversationBrowser.new({
+        on_select = function(conversation_path)
+            log.debug("main", string.format("Selected conversation: %s", conversation_path))
+            load_conversation(conversation_path)
+        end,
+        height = "80%",
+        width = "90%",
+    })
+
+    if not browser then
+        log.debug("main", "Failed to create conversation browser: " .. (err or "unknown error"))
+        vim.notify("CC-TUI: Failed to open conversation browser", vim.log.levels.ERROR)
+        return
+    end
+
+    -- Show the browser
+    browser:show()
 end
 
 return M

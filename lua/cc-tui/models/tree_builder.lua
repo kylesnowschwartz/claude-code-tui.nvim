@@ -37,7 +37,7 @@ function M.build_tree(messages, session_info)
 
     -- First pass: collect all tool results
     for _, msg in ipairs(messages) do
-        if msg.type == "user" and msg.message and msg.message.content then
+        if msg.type == "user" and msg.message and msg.message.content and type(msg.message.content) == "table" then
             for _, content in ipairs(msg.message.content) do
                 if content.type == "tool_result" and content.tool_use_id then
                     tool_results[content.tool_use_id] = {
@@ -64,7 +64,7 @@ function M.build_tree(messages, session_info)
                 local message_node = M.create_message_node_from_message(msg, create_unique_text_node)
                 if message_node then
                     -- Add tool nodes as children
-                    if msg.message and msg.message.content then
+                    if msg.message and msg.message.content and type(msg.message.content) == "table" then
                         for _, content in ipairs(msg.message.content) do
                             if content.type == "tool_use" then
                                 local tool_node = Node.create_tool_node(content.id, content.name, content.input)
@@ -144,7 +144,7 @@ function M.create_message_node_from_message(message, create_text_node)
 
     -- Extract text preview (ensure single line)
     local preview = ""
-    if message.message.content then
+    if message.message.content and type(message.message.content) == "table" then
         -- Look for text content first
         for _, content in ipairs(message.message.content) do
             if content.type == "text" and content.text then
@@ -173,6 +173,9 @@ function M.create_message_node_from_message(message, create_text_node)
                 end
             end
         end
+    elseif message.message.content and type(message.message.content) == "string" then
+        -- Handle string content directly
+        preview = message.message.content:gsub("[\n\r]", " "):gsub("%s+", " ")
     end
 
     local node = Node.create_message_node(msg_id, role, preview)
@@ -181,7 +184,7 @@ function M.create_message_node_from_message(message, create_text_node)
     local has_tools = false
     local text_content = ""
 
-    if message.message.content then
+    if message.message.content and type(message.message.content) == "table" then
         for _, content in ipairs(message.message.content) do
             if content.type == "tool_use" then
                 has_tools = true
@@ -189,7 +192,13 @@ function M.create_message_node_from_message(message, create_text_node)
                 text_content = content.text
             end
         end
+    elseif message.message.content and type(message.message.content) == "string" then
+        -- String content doesn't have tools
+        has_tools = false
+        text_content = message.message.content
+    end
 
+    if message.message.content then
         -- Only add detailed text as child if:
         -- 1. No tools present (tools are more important than text details)
         -- 2. Text is significantly longer than the preview (avoid duplication)
