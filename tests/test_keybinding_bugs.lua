@@ -39,7 +39,7 @@ T["Keybinding Bugs"]["Tab key should toggle tree nodes"] = function()
         end
 
         -- Check if Tab is mapped in the buffer (view-level keymaps)
-        local bufnr = state.tabbed_manager.split.bufnr
+        local bufnr = state.tabbed_manager.popup.bufnr
         local tab_mapped = false
 
         -- Get all buffer-local keymaps for normal mode
@@ -83,7 +83,7 @@ T["Keybinding Bugs"]["Question mark should switch to help tab"] = function()
         end
 
         -- Check if ? is mapped in the buffer
-        local bufnr = state.tabbed_manager.split.bufnr
+        local bufnr = state.tabbed_manager.popup.bufnr
         local help_mapped = false
 
         -- Get all buffer-local keymaps for normal mode
@@ -130,7 +130,7 @@ T["Keybinding Bugs"]["Tab actually toggles tree nodes"] = function()
         -- Simulate Tab key press to toggle tree node
         local tab_pressed = pcall(function()
             -- Find the Tab keymap and call its handler
-            local keymaps = vim.api.nvim_buf_get_keymap(state.tabbed_manager.split.bufnr, 'n')
+            local keymaps = vim.api.nvim_buf_get_keymap(state.tabbed_manager.popup.bufnr, 'n')
             for _, keymap in ipairs(keymaps) do
                 if keymap.lhs == '<Tab>' and keymap.callback then
                     keymap.callback()
@@ -175,7 +175,7 @@ T["Keybinding Bugs"]["Question mark actually switches to help tab"] = function()
         -- Simulate ? key press to switch to help tab
         local help_shown = pcall(function()
             -- Find the ? keymap and call its handler
-            local keymaps = vim.api.nvim_buf_get_keymap(state.tabbed_manager.split.bufnr, 'n')
+            local keymaps = vim.api.nvim_buf_get_keymap(state.tabbed_manager.popup.bufnr, 'n')
             for _, keymap in ipairs(keymaps) do
                 if keymap.lhs == '?' and keymap.callback then
                     keymap.callback()

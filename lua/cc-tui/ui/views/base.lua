@@ -4,7 +4,9 @@
 ---@brief ]]
 
 local NuiLine = require("nui.line")
+local highlights = require("cc-tui.utils.highlights")
 local log = require("cc-tui.utils.log")
+local text_utils = require("cc-tui.utils.text")
 
 ---@class CcTui.UI.View
 ---@field manager CcTui.UI.TabbedManager Reference to parent tabbed manager
@@ -86,102 +88,88 @@ function BaseView:get_view_id()
     return self.view_id
 end
 
----Helper to create centered text line
+---Professional helper to create centered text line
 ---@param text string Text to center
 ---@param width number Available width
 ---@param highlight? string Optional highlight group
----@return NuiLine line Centered text line
+---@return NuiLine line Professional centered text line
 function BaseView:create_centered_line(text, width, highlight)
-    vim.validate({
-        text = { text, "string" },
-        width = { width, "number" },
-        highlight = { highlight, "string", true },
-    })
-
-    local padding = math.max(0, math.floor((width - vim.api.nvim_strwidth(text)) / 2))
-
-    local line = NuiLine()
-    line:append(string.rep(" ", padding))
-    line:append(text, highlight or "Normal")
-
-    return line
+    return text_utils.align_text(text, width, "center", highlight)
 end
 
----Helper to create padded text line
+---Professional helper to create padded text line
 ---@param text string Text content
----@param padding? number Left padding (default: 2)
+---@param padding? number Left padding (default: professional standard)
 ---@param highlight? string Optional highlight group
----@return NuiLine line Padded text line
+---@return NuiLine line Professional padded text line
 function BaseView:create_padded_line(text, padding, highlight)
-    vim.validate({
-        text = { text, "string" },
-        padding = { padding, "number", true },
-        highlight = { highlight, "string", true },
-    })
-
-    padding = padding or 2
-
-    local line = NuiLine()
-    line:append(string.rep(" ", padding))
-    line:append(text, highlight or "Normal")
-
-    return line
+    return text_utils.pad_line(text, highlight, padding)
 end
 
----Helper to create separator line
+---Professional helper to create separator line
 ---@param width number Line width
----@param char? string Separator character (default: "─")
+---@param char? string Separator character (default: professional standard)
 ---@param highlight? string Optional highlight group
----@return NuiLine line Separator line
+---@return NuiLine line Professional separator line
 function BaseView:create_separator_line(width, char, highlight)
-    vim.validate({
-        width = { width, "number" },
-        char = { char, "string", true },
-        highlight = { highlight, "string", true },
-    })
-
-    char = char or "─"
-
-    local line = NuiLine()
-    line:append(string.rep(char, width), highlight or "Comment")
-
-    return line
+    return text_utils.divider(width, true, char, highlight)
 end
 
----Helper to create empty line
----@return NuiLine line Empty line
-function BaseView:create_empty_line()
-    return NuiLine()
+---Professional helper to create empty line
+---@param padding? number Optional padding for consistency
+---@return NuiLine line Professional empty line
+function BaseView:create_empty_line(padding)
+    return text_utils.empty_line(padding)
 end
 
----Helper to truncate text to fit width with ellipsis
+---Professional helper to create section header
+---@param title string Section title
+---@param icon? string Optional icon
+---@param highlight? string Optional highlight group
+---@return NuiLine line Professional section header
+function BaseView:create_section_header(title, icon, highlight)
+    return text_utils.section_header(title, icon, highlight)
+end
+
+---Professional helper to create list item
+---@param text string Item text
+---@param index? number Optional item number
+---@param status? string Optional status indicator
+---@return NuiLine line Professional list item
+function BaseView:create_list_item(text, index, status)
+    return text_utils.list_item(text, index, status)
+end
+
+---Professional helper to create action bar
+---@param actions table<string, string> Action mappings
+---@param width number Available width
+---@return NuiLine line Professional action bar
+function BaseView:create_action_bar(actions, width)
+    return text_utils.action_bar(actions, width)
+end
+
+---Professional helper to truncate text with ellipsis
 ---@param text string Text to truncate
 ---@param max_width number Maximum width
----@param ellipsis? string Ellipsis string (default: "...")
----@return string text Truncated text
+---@param ellipsis? string Ellipsis string
+---@return string text Professionally truncated text
 function BaseView:truncate_text(text, max_width, ellipsis)
-    vim.validate({
-        text = { text, "string" },
-        max_width = { max_width, "number" },
-        ellipsis = { ellipsis, "string", true },
-    })
+    return text_utils.truncate_text(text, max_width, ellipsis)
+end
 
-    ellipsis = ellipsis or "..."
-    local text_width = vim.api.nvim_strwidth(text)
+---Get professional highlight for UI element
+---@param element string UI element type
+---@return string highlight Professional highlight group
+function BaseView:get_highlight(element)
+    return highlights.get_highlight(element)
+end
 
-    if text_width <= max_width then
-        return text
-    end
-
-    local ellipsis_width = vim.api.nvim_strwidth(ellipsis)
-    local available_width = max_width - ellipsis_width
-
-    if available_width <= 0 then
-        return string.sub(ellipsis, 1, max_width)
-    end
-
-    -- Simple truncation - could be improved to handle multi-byte characters better
-    return string.sub(text, 1, available_width) .. ellipsis
+---Create professional status badge
+---@param text string Badge text
+---@param type string Badge type
+---@return table badge Professional badge configuration
+function BaseView:create_badge(text, type)
+    return highlights.create_badge(text, type)
 end
 
 return BaseView

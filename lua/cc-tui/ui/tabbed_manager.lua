@@ -6,11 +6,15 @@
 
 local NuiLine = require("nui.line")
 local NuiText = require("nui.text")
-local Split = require("nui.split")
+local Popup = require("nui.popup")
+local highlights = require("cc-tui.utils.highlights")
 local log = require("cc-tui.utils.log")
+local logo_utils = require("cc-tui.utils.logo")
+local text_utils = require("cc-tui.utils.text")
 
 ---@class CcTui.UI.TabbedManager
----@field split NuiSplit Main split window
+---@field popup NuiPopup Main popup window
+---@field split NuiPopup Deprecated: For backward compatibility, same as popup
 ---@field current_tab string Currently active tab ID
 ---@field tabs CcTui.TabConfig[] Tab configuration array
 ---@field views table<string, any> Tab content views by ID
@@ -26,14 +30,14 @@ TabbedManager.__index = TabbedManager
 ---@field view string View class name for content
 
 ---@class CcTui.TabbedManagerOptions
----@field width? number|string Width of manager window (default: "90%")
+---@field width? number|string Width of manager window (default: "80%")
 ---@field height? number|string Height of manager window (default: "80%")
 ---@field default_tab? string Default tab to open (default: "current")
 ---@field on_close? function Optional callback when manager is closed
 
 -- UI Constants
 local DEFAULTS = {
-    DEFAULT_WIDTH = "90%",
+    DEFAULT_WIDTH = "80%",
     DEFAULT_HEIGHT = "80%",
     MIN_WINDOW_WIDTH = 80,
     MIN_WINDOW_HEIGHT = 15,
@@ -68,62 +72,58 @@ local TAB_DEFINITIONS = {
     },
 }
 
----Create highlight groups for the tabbed interface
+---Initialize professional highlights system
 local function setup_highlights()
-    vim.api.nvim_set_hl(0, "CcTuiTabActive", { link = "TabLineSel", default = true })
-    vim.api.nvim_set_hl(0, "CcTuiTabInactive", { link = "TabLine", default = true })
-    vim.api.nvim_set_hl(0, "CcTuiTabBar", { link = "TabLineFill", default = true })
-    vim.api.nvim_set_hl(0, "CcTuiTitle", { link = "Title", default = true })
-    vim.api.nvim_set_hl(0, "CcTuiMuted", { link = "Comment", default = true })
-    vim.api.nvim_set_hl(0, "CcTuiInfo", { link = "Directory", default = true })
+    highlights.init()
 end
 
----Create MCPHub-style centered tab bar
+---Create professional MCPHub-style centered tab bar
 ---@param tabs CcTui.TabConfig[] Tab definitions
 ---@param current_tab string Currently active tab ID
 ---@param width number Available width for centering
 ---@return NuiLine
 local function create_tab_bar(tabs, current_tab, width)
-    local tab_group = NuiLine()
+    local line = NuiLine()
+
+    -- Build tab content manually with proper highlights
+    local tab_parts = {}
+    local total_content_width = 0
 
     for i, tab in ipairs(tabs) do
+        local is_selected = tab.id == current_tab
+        local tab_text = string.format(" %s %s ", tab.key, tab.label)
+
+        -- Add spacing between tabs
         if i > 1 then
-            tab_group:append(" ")
+            table.insert(tab_parts, { text = "  ", highlight = "CcTuiTabBar" })
+            total_content_width = total_content_width + 2
         end
 
-        local is_selected = tab.id == current_tab
-        local tab_text = string.format("%s %s", tab.key, tab.label)
-
-        tab_group:append(" " .. tab_text .. " ", is_selected and "CcTuiTabActive" or "CcTuiTabInactive")
+        -- Add tab with appropriate highlight
+        local highlight = is_selected and "CcTuiTabActive" or "CcTuiTabInactive"
+        table.insert(tab_parts, { text = tab_text, highlight = highlight })
+        total_content_width = total_content_width + vim.api.nvim_strwidth(tab_text)
     end
 
     -- Center the tab bar
-    local tab_content = tab_group:content()
-    local tab_width = vim.api.nvim_strwidth(tab_content)
-    local padding = math.max(0, math.floor((width - tab_width) / 2))
+    local padding = math.max(0, math.floor((width - total_content_width) / 2))
 
-    local centered_line = NuiLine()
-    centered_line:append(string.rep(" ", padding), "CcTuiTabBar")
+    -- Add left padding
+    line:append(string.rep(" ", padding), "CcTuiTabBar")
 
-    -- Re-add tab content with proper highlights
-    for i, tab in ipairs(tabs) do
-        if i > 1 then
-            centered_line:append(" ", "CcTuiTabBar")
-        end
-
-        local is_selected = tab.id == current_tab
-        local tab_text = string.format("%s %s", tab.key, tab.label)
-
-        centered_line:append(" " .. tab_text .. " ", is_selected and "CcTuiTabActive" or "CcTuiTabInactive")
+    -- Add all tab parts
+    for _, part in ipairs(tab_parts) do
+        line:append(part.text, part.highlight)
     end
 
-    -- Fill remaining space
-    local remaining_padding = width - vim.api.nvim_strwidth(centered_line:content())
+    -- Fill remaining space on the right
+    local current_width = vim.api.nvim_strwidth(line:content())
+    local remaining_padding = math.max(0, width - current_width)
     if remaining_padding > 0 then
-        centered_line:append(string.rep(" ", remaining_padding), "CcTuiTabBar")
+        line:append(string.rep(" ", remaining_padding), "CcTuiTabBar")
     end
 
-    return centered_line
+    return line
 end
 
 ---Create a new tabbed manager instance
@@ -146,12 +146,42 @@ function TabbedManager.new(opts)
     self.views = {}
     self.on_close_callback = opts.on_close
 
-    -- Create main split window with error handling
-    local success, split = pcall(function()
-        return Split({
+    -- Parse size values like MCPHub
+    local function parse_size(value, total)
+        if type(value) == "string" then
+            if value:match("%%$") then
+                local percent = tonumber(value:match("(%d+)%%"))
+                return math.floor((percent / 100) * total)
+            end
+        elseif type(value) == "number" then
+            if value <= 1 then
+                return math.floor(value * total)
+            else
+                return value
+            end
+        end
+        return math.floor(0.8 * total) -- default fallback
+    end
+
+    local width = parse_size(opts.width or DEFAULTS.DEFAULT_WIDTH, vim.o.columns)
+    local height = parse_size(opts.height or DEFAULTS.DEFAULT_HEIGHT, vim.o.lines)
+
+    -- Center the window
+    local row = math.floor((vim.o.lines - height) / 2)
+    local col = math.floor((vim.o.columns - width) / 2)
+
+    -- Create main floating window with error handling
+    local success, popup = pcall(function()
+        return Popup({
             relative = "editor",
-            position = "top",
-            size = opts.height or DEFAULTS.DEFAULT_HEIGHT,
+            position = {
+                row = row,
+                col = col,
+            },
+            size = {
+                width = width,
+                height = height,
+            },
             border = {
                 style = "rounded",
                 text = {
@@ -172,10 +202,11 @@ function TabbedManager.new(opts)
     end)
 
     if not success then
-        return nil, "Failed to create tabbed manager UI: " .. tostring(split)
+        return nil, "Failed to create tabbed manager UI: " .. tostring(popup)
     end
 
-    self.split = split
+    self.popup = popup
+    self.split = popup -- Backward compatibility for tests
 
     -- Setup keymaps
     self:setup_keymaps()
@@ -222,7 +253,7 @@ function TabbedManager:setup_keymaps()
 end
 
 ---Initialize view instances (lazy loading)
-function TabbedManager:init_views(_)
+function TabbedManager:init_views()
     -- Views will be loaded on demand in switch_to_tab()
     -- This prevents loading all views upfront and improves startup time
     log.debug("TabbedManager", "View initialization set up for lazy loading")
@@ -276,14 +307,14 @@ end
 
 ---Apply view-specific keymaps for current tab
 function TabbedManager:apply_view_keymaps()
-    if not self.split or not self.split.bufnr then
+    if not self.popup or not self.popup.bufnr then
         return
     end
 
     -- Clear existing view keymaps
     if self._current_view_keymaps then
         for key, _ in pairs(self._current_view_keymaps) do
-            pcall(vim.keymap.del, "n", key, { buffer = self.split.bufnr })
+            pcall(vim.keymap.del, "n", key, { buffer = self.popup.bufnr })
         end
     end
 
@@ -305,7 +336,7 @@ function TabbedManager:apply_view_keymaps()
                         handler()
                         self:render() -- Re-render after view action
                     end, {
-                        buffer = self.split.bufnr,
+                        buffer = self.popup.bufnr,
                         noremap = true,
                         silent = true,
                     })
@@ -387,76 +418,89 @@ end
 ---Get window width for layout calculations
 ---@return number width Available window width
 function TabbedManager:get_width()
-    return math.max(DEFAULTS.MIN_WINDOW_WIDTH, vim.api.nvim_win_get_width(self.split.winid or 0))
+    return math.max(DEFAULTS.MIN_WINDOW_WIDTH, vim.api.nvim_win_get_width(self.popup.winid or 0))
 end
 
 ---Get window height for layout calculations
 ---@return number height Available window height for content
 function TabbedManager:get_content_height()
-    local total_height = math.max(DEFAULTS.MIN_WINDOW_HEIGHT, vim.api.nvim_win_get_height(self.split.winid or 0))
+    local total_height = math.max(DEFAULTS.MIN_WINDOW_HEIGHT, vim.api.nvim_win_get_height(self.popup.winid or 0))
     return total_height - DEFAULTS.TAB_BAR_HEIGHT
 end
 
----Render the complete tabbed interface
+---Render the complete professional tabbed interface
 function TabbedManager:render()
-    if not self.split or not self.split.bufnr then
+    if not self.popup or not self.popup.bufnr then
         return
     end
 
-    vim.api.nvim_buf_set_option(self.split.bufnr, "modifiable", true)
+    vim.api.nvim_buf_set_option(self.popup.bufnr, "modifiable", true)
 
     local lines = {}
     local width = self:get_width()
 
-    -- Add tab bar
+    -- Add professional header with logo placeholder
+    local header_lines = logo_utils.create_compact_header(width)
+    for _, line in ipairs(header_lines) do
+        table.insert(lines, line)
+    end
+
+    -- Add professional tab bar
     local tab_bar = create_tab_bar(self.tabs, self.current_tab, width)
     table.insert(lines, tab_bar)
 
-    -- Add separator line
-    local separator = NuiLine()
-    separator:append(string.rep("─", width), "CcTuiMuted")
-    table.insert(lines, separator)
+    -- Add professional divider
+    local divider_line = text_utils.divider(width, true, "─", "CcTuiMuted")
+    table.insert(lines, divider_line)
 
-    -- Add spacing
-    table.insert(lines, NuiLine())
+    -- Add consistent spacing
+    table.insert(lines, text_utils.empty_line())
 
-    -- Add current tab content
+    -- Add current tab content with professional layout
     local current_view = self:load_view(self.current_tab)
     if current_view and type(current_view.render) == "function" then
-        local content_lines = current_view:render(self:get_content_height())
+        local content_height = self:get_content_height() - 4 -- Account for header space
+        local content_lines = current_view:render(content_height)
         if content_lines then
             for _, line in ipairs(content_lines) do
                 table.insert(lines, line)
             end
         end
     else
-        -- Fallback content if view not available
-        local error_line = NuiLine()
-        error_line:append(string.format("  Error: Unable to load content for '%s' tab", self.current_tab), "CcTuiMuted")
+        -- Professional fallback content
+        local error_line = text_utils.pad_line(
+            string.format("Error: Unable to load content for '%s' tab", self.current_tab),
+            "CcTuiMuted"
+        )
         table.insert(lines, error_line)
     end
 
     -- Clear buffer and render all lines
-    vim.api.nvim_buf_set_lines(self.split.bufnr, 0, -1, false, {})
+    vim.api.nvim_buf_set_lines(self.popup.bufnr, 0, -1, false, {})
     for i, line in ipairs(lines) do
-        line:render(self.split.bufnr, -1, i)
+        line:render(self.popup.bufnr, -1, i)
     end
 
-    vim.api.nvim_buf_set_option(self.split.bufnr, "modifiable", false)
+    vim.api.nvim_buf_set_option(self.popup.bufnr, "modifiable", false)
 end
 
 ---Show the tabbed manager
 function TabbedManager:show()
-    if not self.split then
+    if not self.popup then
         return
     end
 
-    self.split:mount()
+    self.popup:mount()
+
+    -- Focus the main window
+    if self.popup.winid then
+        vim.api.nvim_set_current_win(self.popup.winid)
+    end
 
     -- Apply global keymaps
     for key, handler in pairs(self.keymaps) do
         vim.keymap.set("n", key, handler, {
-            buffer = self.split.bufnr,
+            buffer = self.popup.bufnr,
             noremap = true,
             silent = true,
         })
@@ -471,7 +515,7 @@ end
 
 ---Close the tabbed manager
 function TabbedManager:close()
-    if self.split then
+    if self.popup then
         -- Clean up views
         for _, view in pairs(self.views) do
             if type(view.cleanup) == "function" then
@@ -479,7 +523,7 @@ function TabbedManager:close()
             end
         end
 
-        self.split:unmount()
+        self.popup:unmount()
 
         -- Call optional close callback
         if self.on_close_callback then
@@ -493,7 +537,7 @@ end
 ---Check if manager is currently active
 ---@return boolean active True if manager is shown and valid
 function TabbedManager:is_active()
-    return self.split ~= nil and self.split.bufnr ~= nil and vim.api.nvim_buf_is_valid(self.split.bufnr)
+    return self.popup ~= nil and self.popup.bufnr ~= nil and vim.api.nvim_buf_is_valid(self.popup.bufnr)
 end
 
 return TabbedManager

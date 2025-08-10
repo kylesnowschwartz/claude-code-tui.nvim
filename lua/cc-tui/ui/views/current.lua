@@ -8,6 +8,7 @@ local NuiLine = require("nui.line")
 local log = require("cc-tui.utils.log")
 
 -- Import existing UI components we can reuse
+local ContentRenderer = require("cc-tui.ui.content_renderer")
 local DataLoader = require("cc-tui.core.data_loader")
 
 ---@class CcTui.UI.CurrentView:CcTui.UI.View
@@ -64,13 +65,14 @@ function CurrentView:load_conversation_data()
     log.debug("CurrentView", string.format("Loaded conversation with %d messages", #self.messages))
 end
 
----Flatten tree for display with indentation
+---Flatten tree for display with indentation and expansion state
 ---@param node CcTui.BaseNode Tree node to flatten
 ---@param level number Indentation level
 ---@param result table[] Accumulated flattened nodes
 ---@param index number Running index counter
+---@param expanded_nodes table<string, boolean> Current expansion state
 ---@return number index Updated index counter
-local function flatten_tree(node, level, result, index)
+local function flatten_tree(node, level, result, index, expanded_nodes)
     if not node then
         return index
     end
@@ -83,10 +85,15 @@ local function flatten_tree(node, level, result, index)
     })
     index = index + 1
 
-    -- Add children if node is expanded
+    -- Add children only if node is expanded
     if node.children and #node.children > 0 then
-        for _, child in ipairs(node.children) do
-            index = flatten_tree(child, level + 1, result, index)
+        local node_key = node.id or tostring(node)
+        local is_expanded = expanded_nodes[node_key]
+
+        if is_expanded then
+            for _, child in ipairs(node.children) do
+                index = flatten_tree(child, level + 1, result, index, expanded_nodes)
+            end
         end
     end
 
@@ -101,7 +108,7 @@ function CurrentView:get_flattened_tree()
     end
 
     local flattened = {}
-    flatten_tree(self.tree_data, 0, flattened, 1)
+    flatten_tree(self.tree_data, 0, flattened, 1, self.expanded_nodes)
     return flattened
 end
 
@@ -229,7 +236,7 @@ function CurrentView:render(available_height)
 
         local help_line = NuiLine()
         help_line:append(
-            "  [j/k] Navigate  [Space/Enter] Expand/Select  [h/l] Collapse/Expand  [o/c] Expand/Collapse All",
+            "  [j/k] Navigate  [Space/Enter/Tab] Expand/Content  [h/l] Collapse/Expand  [o/c] Expand/Collapse All  [x/X] Close Content",
             "CcTuiMuted"
         )
         table.insert(lines, help_line)
@@ -253,13 +260,126 @@ function CurrentView:prev_item()
     end
 end
 
----Toggle expansion of selected node
+---Toggle expansion of selected node or show content popup
 function CurrentView:toggle_selected_node()
     local flattened = self:get_flattened_tree()
     if self.selected_index <= #flattened then
         local item = flattened[self.selected_index]
         local node = item.node
 
+        -- Debug what kind of node we have
+        log.debug(
+            "CurrentView",
+            string.format(
+                "Toggle node: type=%s, has_data=%s, has_children=%s",
+                node.type or "nil",
+                node.data and "yes" or "no",
+                node.children and #node.children > 0 and "yes" or "no"
+            )
+        )
+
+        if node.data then
+            log.debug(
+                "CurrentView",
+                string.format("Node data: type=%s, id=%s", node.data.type or "nil", node.data.id or "nil")
+            )
+        end
+
+        -- Handle result nodes with content popups (like original tree system)
+        if node.data and node.data.type == "result" then
+            self:toggle_result_content(node)
+        elseif node.children and #node.children > 0 then
+            -- Handle regular tree expansion
+            local node_key = node.id or tostring(node)
+            self.expanded_nodes[node_key] = not self.expanded_nodes[node_key]
+        end
+    end
+end
+
+---Toggle content display for result nodes (matches original tree.lua functionality)
+function CurrentView:toggle_result_content(node)
+    if not node.data or node.data.type ~= "result" then
+        log.debug("CurrentView", "Node is not a result type")
+        return
+    end
+
+    local result_data = node.data
+    log.debug(
+        "CurrentView",
+        string.format("Attempting to toggle result content: id=%s, type=%s", result_data.id or "nil", result_data.type)
+    )
+
+    -- Check if content window is already open
+    if ContentRenderer.is_content_window_open(result_data.id) then
+        -- Close existing content window
+        local closed = ContentRenderer.close_content_window(result_data.id)
+        if closed then
+            log.debug("CurrentView", string.format("Closed content window for result: %s", result_data.id))
+        end
+        return
+    end
+
+    -- Debug the result data structure
+    log.debug(
+        "CurrentView",
+        string.format(
+            "Result data: id=%s, content_len=%d, has_structured=%s, use_rich_display=%s",
+            result_data.id or "nil",
+            result_data.content and #result_data.content or 0,
+            result_data.structured_content and "yes" or "no",
+            tostring(result_data.use_rich_display)
+        )
+    )
+
+    -- Check if we have the required structured_content
+    if not result_data.structured_content then
+        log.debug("CurrentView", "No structured_content available, creating minimal structure")
+        result_data.structured_content = {
+            type = "text",
+            content = result_data.content or "",
+        }
+    end
+
+    -- Use display decision from result data
+    local should_use_rich_display = result_data.use_rich_display
+    if should_use_rich_display == nil then
+        -- Default to true for content popups
+        should_use_rich_display = true
+    end
+
+    if should_use_rich_display then
+        -- Use rich content display via ContentRenderer
+        local tool_name = result_data.tool_name -- May need to find parent tool
+
+        log.debug(
+            "CurrentView",
+            string.format(
+                "Calling ContentRenderer.render_content with: id=%s, tool=%s, content_len=%d",
+                result_data.id,
+                tool_name or "nil",
+                result_data.content and #result_data.content or 0
+            )
+        )
+
+        local success, content_window = pcall(
+            ContentRenderer.render_content,
+            result_data.id,
+            tool_name,
+            result_data.content or "",
+            vim.api.nvim_get_current_win(),
+            result_data.structured_content,
+            result_data.stream_context
+        )
+
+        if success and content_window then
+            log.debug("CurrentView", string.format("Opened content window for result: %s", result_data.id))
+        else
+            log.debug("CurrentView", string.format("Failed to open content window: %s", tostring(content_window)))
+            vim.notify("Failed to open content window: " .. tostring(content_window), vim.log.levels.ERROR)
+        end
+    else
+        -- Fall back to normal tree expansion for small content
+        log.debug("CurrentView", "Using fallback tree expansion")
         if node.children and #node.children > 0 then
             local node_key = node.id or tostring(node)
             self.expanded_nodes[node_key] = not self.expanded_nodes[node_key]
@@ -331,6 +451,31 @@ function CurrentView:setup_keymaps()
         end,
         ["c"] = function()
             self:collapse_all()
+        end,
+        ["x"] = function()
+            -- Close content window for selected result node
+            local flattened = self:get_flattened_tree()
+            if self.selected_index <= #flattened then
+                local item = flattened[self.selected_index]
+                local node = item.node
+                if node.data and node.data.type == "result" then
+                    local closed = ContentRenderer.close_content_window(node.data.id)
+                    if closed then
+                        vim.notify("Closed content window", vim.log.levels.INFO)
+                    else
+                        vim.notify("No content window to close", vim.log.levels.WARN)
+                    end
+                end
+            end
+        end,
+        ["X"] = function()
+            -- Close all content windows
+            local count = ContentRenderer.close_all_content_windows()
+            if count > 0 then
+                vim.notify(string.format("Closed %d content window(s)", count), vim.log.levels.INFO)
+            else
+                vim.notify("No content windows to close", vim.log.levels.INFO)
+            end
         end,
     }
 end

@@ -66,7 +66,7 @@ function M.enable(scope, default_tab)
 
     -- Create tabbed manager
     local manager, err = TabbedManager.new({
-        width = "90%",
+        width = "80%",
         height = "80%",
         default_tab = default_tab,
         on_close = function()

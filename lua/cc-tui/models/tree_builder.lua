@@ -259,6 +259,12 @@ function M.create_result_node_from_content(tool_use_id, content, create_text_nod
         node.stream_context = stream_context
     end
 
+    -- Store tool_name and stream_context in data field for CurrentView access
+    if node.data then
+        node.data.tool_name = tool_name
+        node.data.stream_context = stream_context
+    end
+
     -- Add formatted content as children based on tool type and content length
     -- Enhanced with Claude Code stream context for deterministic classification
     if result_text and result_text ~= "" then
@@ -328,6 +334,11 @@ function M.add_formatted_result_children(node, result_text, _, create_text_node,
 
     -- Store display decision in node metadata for Tree UI consumption
     node.use_rich_display = should_use_rich_display
+
+    -- Also store in data field for CurrentView access
+    if node.data then
+        node.data.use_rich_display = should_use_rich_display
+    end
 
     if should_use_rich_display then
         -- Content will be displayed via ContentRenderer - no children needed
