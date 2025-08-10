@@ -425,8 +425,8 @@ function TabbedManager:set_current_conversation(conversation_path)
     self.current_conversation_path = conversation_path
     log.debug("TabbedManager", string.format("Set current conversation: %s", conversation_path))
 
-    -- If Current tab is loaded, update it with the new conversation
-    local current_view = self.views.current
+    -- Ensure Current view is loaded before attempting to set conversation
+    local current_view = self:load_view("current")
     if current_view and type(current_view.load_specific_conversation) == "function" then
         current_view:load_specific_conversation(conversation_path)
     end
