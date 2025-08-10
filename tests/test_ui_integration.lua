@@ -30,8 +30,8 @@ local T = MiniTest.new_set({
 -- Phase 3.1: TabbedManager Integration Tests
 T["TabbedManager Integration"] = MiniTest.new_set()
 
--- RED: This should fail initially as we need to implement conversation loading integration
-T["TabbedManager Integration"]["RED: Browse to Current workflow transfers conversation path"] = function()
+-- GREEN: Browse to Current workflow integration
+T["TabbedManager Integration"]["GREEN: Browse to Current workflow transfers conversation path"] = function()
     child.lua([[
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
 
@@ -79,25 +79,17 @@ T["TabbedManager Integration"]["RED: Browse to Current workflow transfers conver
 
     Helpers.expect.equality(initial_tab, "browse")
 
-    -- RED: These should fail as integration isn't implemented yet
-    if not switched_to_current then
-        error("FAIL (expected): Browse selection should switch to Current tab - integration not implemented")
-    end
-
-    if not conversation_path_set then
-        error("FAIL (expected): TabbedManager should track conversation path - integration not implemented")
-    end
-
-    if not current_view_has_path then
-        error("FAIL (expected): Current view should receive selected conversation path - integration not implemented")
-    end
+    -- GREEN: Integration should work correctly
+    Helpers.expect.truthy(switched_to_current, "Browse selection should switch to Current tab")
+    Helpers.expect.truthy(conversation_path_set, "TabbedManager should track conversation path")
+    Helpers.expect.truthy(current_view_has_path, "Current view should receive selected conversation path")
 
     -- Clean up
     child.lua("if _G.test_manager then _G.test_manager:close() end")
 end
 
--- RED: Tab navigation should preserve state
-T["TabbedManager Integration"]["RED: Tab switching preserves conversation context"] = function()
+-- GREEN: Tab navigation preserves state
+T["TabbedManager Integration"]["GREEN: Tab switching preserves conversation context"] = function()
     child.lua([[
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
 
@@ -147,26 +139,18 @@ T["TabbedManager Integration"]["RED: Tab switching preserves conversation contex
     local conversation_still_loaded = child.lua_get("_G.conversation_still_loaded")
     local current_view_preserved = child.lua_get("_G.current_view_preserved")
 
-    -- RED: These should fail as conversation context preservation isn't implemented
-    if not current_tab_active then
-        error("FAIL (expected): Should switch to Current tab after conversation selection")
-    end
-
-    if not conversation_loaded then
-        error("FAIL (expected): Should load selected conversation in TabbedManager context")
-    end
-
-    if not conversation_preserved_in_logs then
-        error("FAIL (expected): Should preserve conversation context when switching to Logs tab")
-    end
-
-    if not conversation_still_loaded then
-        error("FAIL (expected): Should maintain conversation context when returning to Current tab")
-    end
-
-    if not current_view_preserved then
-        error("FAIL (expected): Current view should preserve conversation after tab navigation")
-    end
+    -- GREEN: Conversation context preservation should work correctly
+    Helpers.expect.truthy(current_tab_active, "Should switch to Current tab after conversation selection")
+    Helpers.expect.truthy(conversation_loaded, "Should load selected conversation in TabbedManager context")
+    Helpers.expect.truthy(
+        conversation_preserved_in_logs,
+        "Should preserve conversation context when switching to Logs tab"
+    )
+    Helpers.expect.truthy(
+        conversation_still_loaded,
+        "Should maintain conversation context when returning to Current tab"
+    )
+    Helpers.expect.truthy(current_view_preserved, "Current view should preserve conversation after tab navigation")
 
     -- Clean up
     child.lua("if _G.test_manager then _G.test_manager:close() end")
@@ -175,8 +159,8 @@ end
 -- Phase 3.2: Data Loading Integration Tests
 T["Data Loading Integration"] = MiniTest.new_set()
 
--- RED: Test conversation loading with large files
-T["Data Loading Integration"]["RED: Loads large conversation files efficiently"] = function()
+-- GREEN: Test conversation loading with large files
+T["Data Loading Integration"]["GREEN: Loads large conversation files efficiently"] = function()
     -- Create a test file in /tmp which is allowed by path security
     local test_file = "/tmp/large_test_conversation.jsonl"
     local file = io.open(test_file, "w")
@@ -237,7 +221,7 @@ T["Data Loading Integration"]["RED: Loads large conversation files efficiently"]
         local manager = TabbedManager.new({ default_tab = "current" })
         manager:show()
 
-        -- Simulate loading the large file in Current view
+        -- Test integration with TabbedManager - Current view should load specific conversations
         local current_view = manager.views.current
         if current_view and current_view.load_specific_conversation then
             local integration_start = vim.loop.hrtime()
@@ -246,6 +230,7 @@ T["Data Loading Integration"]["RED: Loads large conversation files efficiently"]
 
             _G.integration_time_ms = (integration_end - integration_start) / 1000000
             _G.integration_success = success
+            _G.integration_missing = false
             _G.view_conversation_path = current_view.conversation_path
         else
             _G.integration_missing = true
@@ -265,7 +250,6 @@ T["Data Loading Integration"]["RED: Loads large conversation files efficiently"]
     local integration_missing = child.lua_get("_G.integration_missing")
     local integration_success = child.lua_get("_G.integration_success")
     local integration_time_ms = child.lua_get("_G.integration_time_ms")
-
     Helpers.expect.truthy(load_success, "Should successfully load large conversation file")
     Helpers.expect.truthy(message_count > 0, "Should parse messages from large file")
 
@@ -274,19 +258,13 @@ T["Data Loading Integration"]["RED: Loads large conversation files efficiently"]
         error(string.format("Large file loading too slow: %.2fms for %d bytes", load_time_ms, file_size))
     end
 
-    -- RED: Integration functionality should fail as it's not implemented yet
-    if integration_missing then
-        error("FAIL (expected): Current view missing load_specific_conversation method - integration not implemented")
-    end
+    -- GREEN: Integration functionality should work now
+    Helpers.expect.truthy(not integration_missing, "Current view should have load_specific_conversation method")
+    Helpers.expect.truthy(integration_success, "Current view should successfully load specific conversation")
 
-    if not integration_success then
-        error(
-            "FAIL (expected): Current view should successfully load specific conversation - integration not implemented"
-        )
-    end
-
+    -- Performance validation for UI integration
     if not integration_time_ms or integration_time_ms > 10000 then -- 10 second threshold for UI integration
-        error("FAIL (expected): UI integration loading too slow or failed - optimization needed")
+        error(string.format("UI integration loading too slow: %.2fms", integration_time_ms or 0))
     end
 
     -- Clean up test file
@@ -296,8 +274,8 @@ end
 -- Phase 3.3: End-to-End Workflow Tests
 T["End-to-End Workflows"] = MiniTest.new_set()
 
--- RED: Complete user workflow from Browse to Current with real data
-T["End-to-End Workflows"]["RED: Complete Browse to Current workflow with real conversation"] = function()
+-- GREEN: Complete user workflow from Browse to Current with real data
+T["End-to-End Workflows"]["GREEN: Complete Browse to Current workflow with real conversation"] = function()
     local real_data_loader = require("tests.helpers.real_data_loader")
 
     -- Validate real data is available
