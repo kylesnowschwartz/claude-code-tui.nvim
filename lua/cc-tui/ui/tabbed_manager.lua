@@ -441,7 +441,17 @@ end
 ---Get window width for layout calculations
 ---@return number width Available window width
 function TabbedManager:get_width()
-    return math.max(DEFAULTS.MIN_WINDOW_WIDTH, vim.api.nvim_win_get_width(self.popup.winid or 0))
+    -- Handle test environments where popup might not be fully initialized
+    if not self.popup or not self.popup.winid then
+        return DEFAULTS.MIN_WINDOW_WIDTH
+    end
+
+    local ok, width = pcall(vim.api.nvim_win_get_width, self.popup.winid)
+    if not ok then
+        return DEFAULTS.MIN_WINDOW_WIDTH
+    end
+
+    return math.max(DEFAULTS.MIN_WINDOW_WIDTH, width)
 end
 
 ---Get window height for layout calculations
@@ -483,7 +493,7 @@ function TabbedManager:render()
     local current_view = self:load_view(self.current_tab)
     if current_view and type(current_view.render) == "function" then
         local content_height = self:get_content_height() - 4 -- Account for header space
-        local content_lines = current_view:render(content_height)
+        local content_lines = current_view:render(content_height, width)
         if content_lines then
             for _, line in ipairs(content_lines) do
                 table.insert(lines, line)

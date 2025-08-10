@@ -237,6 +237,12 @@ function BrowseView:render(available_height)
     local lines = {}
     local width = self.manager:get_width()
 
+    -- Debug validation for test environments
+    if type(width) ~= "number" then
+        log.debug("BrowseView", string.format("Invalid width type: %s, value: %s", type(width), vim.inspect(width)))
+        width = 80 -- Fallback width for tests
+    end
+
     -- Header
     local header_line = NuiLine()
     header_line:append("  🗂  Browse Conversations", "CcTuiInfo")

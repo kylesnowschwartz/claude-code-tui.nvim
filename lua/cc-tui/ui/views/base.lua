@@ -93,7 +93,7 @@ end
 ---@param width number Available width
 ---@param highlight? string Optional highlight group
 ---@return NuiLine line Professional centered text line
-function BaseView:create_centered_line(_, text, width, highlight)
+function BaseView:create_centered_line(text, width, highlight)
     return text_utils.align_text(text, width, "center", highlight)
 end
 
@@ -102,7 +102,7 @@ end
 ---@param padding? number Left padding (default: professional standard)
 ---@param highlight? string Optional highlight group
 ---@return NuiLine line Professional padded text line
-function BaseView:create_padded_line(_, text, padding, highlight)
+function BaseView:create_padded_line(text, padding, highlight)
     return text_utils.pad_line(text, highlight, padding)
 end
 
@@ -111,14 +111,14 @@ end
 ---@param char? string Separator character (default: professional standard)
 ---@param highlight? string Optional highlight group
 ---@return NuiLine line Professional separator line
-function BaseView:create_separator_line(_, width, char, highlight)
+function BaseView:create_separator_line(width, char, highlight)
     return text_utils.divider(width, true, char, highlight)
 end
 
 ---Professional helper to create empty line
 ---@param padding? number Optional padding for consistency
 ---@return NuiLine line Professional empty line
-function BaseView:create_empty_line(_, padding)
+function BaseView:create_empty_line(padding)
     return text_utils.empty_line(padding)
 end
 
@@ -127,7 +127,7 @@ end
 ---@param icon? string Optional icon
 ---@param highlight? string Optional highlight group
 ---@return NuiLine line Professional section header
-function BaseView:create_section_header(_, title, icon, highlight)
+function BaseView:create_section_header(title, icon, highlight)
     return text_utils.section_header(title, icon, highlight)
 end
 
@@ -136,7 +136,7 @@ end
 ---@param index? number Optional item number
 ---@param status? string Optional status indicator
 ---@return NuiLine line Professional list item
-function BaseView:create_list_item(_, text, index, status)
+function BaseView:create_list_item(text, index, status)
     return text_utils.list_item(text, index, status)
 end
 
@@ -144,7 +144,7 @@ end
 ---@param actions table<string, string> Action mappings
 ---@param width number Available width
 ---@return NuiLine line Professional action bar
-function BaseView:create_action_bar(_, actions, width)
+function BaseView:create_action_bar(actions, width)
     return text_utils.action_bar(actions, width)
 end
 
@@ -153,7 +153,7 @@ end
 ---@param max_width number Maximum width
 ---@param ellipsis? string Ellipsis string
 ---@return string text Professionally truncated text
-function BaseView:truncate_text(_, text, max_width, ellipsis)
+function BaseView:truncate_text(text, max_width, ellipsis)
     return text_utils.truncate_text(text, max_width, ellipsis)
 end
 
@@ -168,7 +168,7 @@ end
 ---@param text string Badge text
 ---@param type string Badge type
 ---@return table badge Professional badge configuration
-function BaseView:create_badge(_, text, type)
+function BaseView:create_badge(text, type)
     return highlights.create_badge(text, type)
 end
 
