@@ -33,9 +33,40 @@ T["TabbedManager Integration"] = MiniTest.new_set()
 -- GREEN: Browse to Current workflow integration
 T["TabbedManager Integration"]["GREEN: Browse to Current workflow transfers conversation path"] = function()
     child.lua([[
-        local TabbedManager = require("cc-tui.ui.tabbed_manager")
+        -- Set up test data directory access
+        local test_data_path = vim.fn.expand("~/Code/cc-tui.nvim/docs/test/projects/-Users-kyle-Code-cc-tui-nvim")
+
+        -- Load real test conversations
+        local real_conversations = {}
+        local files = vim.fn.glob(test_data_path .. "/*.jsonl", false, true)
+        for _, filepath in ipairs(files) do
+            local uuid = vim.fs.basename(filepath):gsub("%.jsonl$", "")
+            table.insert(real_conversations, {
+                id = uuid,
+                path = filepath,
+                title = "Test Conversation " .. uuid:sub(1, 8),
+                timestamp = "2024-01-01T12:00:00Z",
+                message_count = 5,
+                size = vim.fn.getfsize(filepath)
+            })
+        end
+
+        _G.test_conversations_available = #real_conversations
+
+        if #real_conversations == 0 then
+            _G.no_conversations = true
+            return
+        end
+
+        -- Mock ProjectDiscovery to return test conversations
+        local ProjectDiscovery = require("cc-tui.services.project_discovery")
+        local original_list_conversations = ProjectDiscovery.list_conversations
+        ProjectDiscovery.list_conversations = function()
+            return real_conversations
+        end
 
         -- Create tabbed manager starting in Browse tab
+        local TabbedManager = require("cc-tui.ui.tabbed_manager")
         local manager = TabbedManager.new({ default_tab = "browse" })
         manager:show()
         _G.test_manager = manager
@@ -43,9 +74,30 @@ T["TabbedManager Integration"]["GREEN: Browse to Current workflow transfers conv
         -- Verify Browse tab is active
         _G.initial_tab = manager.current_tab
 
-        -- Get Browse view and simulate conversation selection
+        -- Now get browse view (should have test conversations loaded automatically)
         local browse_view = manager.views.browse
-        if browse_view and #browse_view.conversations > 0 then
+        if browse_view then
+            _G.browse_view_exists = true
+            _G.conversations_loaded = #browse_view.conversations
+        else
+            _G.browse_view_exists = false
+        end
+
+        -- Restore original function
+        ProjectDiscovery.list_conversations = original_list_conversations
+
+        -- Test conversation selection - with debug right at condition
+        local browse_view_valid = browse_view ~= nil
+        local conversations_count = browse_view and #browse_view.conversations or 0
+        local condition_result = browse_view and #browse_view.conversations > 0
+
+        _G.debug_at_condition = {
+            browse_view_valid = browse_view_valid,
+            conversations_count = conversations_count,
+            condition_result = condition_result
+        }
+
+        if condition_result then
             -- Select first available conversation
             browse_view.current_index = 1
             local selected_conv = browse_view.conversations[1]
@@ -61,6 +113,7 @@ T["TabbedManager Integration"]["GREEN: Browse to Current workflow transfers conv
             -- Verify Current view received the conversation
             local current_view = manager.views.current
             _G.current_view_has_path = current_view and current_view.conversation_path == selected_conv.path
+            _G.test_passed = true
         else
             _G.no_conversations = true
         end
@@ -71,9 +124,22 @@ T["TabbedManager Integration"]["GREEN: Browse to Current workflow transfers conv
     local conversation_path_set = child.lua_get("_G.conversation_path_set")
     local current_view_has_path = child.lua_get("_G.current_view_has_path")
     local no_conversations = child.lua_get("_G.no_conversations")
+    local test_passed = child.lua_get("_G.test_passed")
+    local test_conversations_available = child.lua_get("_G.test_conversations_available")
+    local browse_view_exists = child.lua_get("_G.browse_view_exists")
+    local conversations_loaded = child.lua_get("_G.conversations_loaded")
+    local debug_at_condition = child.lua_get("_G.debug_at_condition")
 
-    if no_conversations then
-        MiniTest.skip("No conversations available for integration test")
+    if no_conversations and not test_passed then
+        local debug_info = string.format(
+            "found %d test conversations, browse_view_exists=%s, conversations_loaded=%s, test_passed=%s, debug_at_condition=%s",
+            test_conversations_available or 0,
+            tostring(browse_view_exists),
+            tostring(conversations_loaded),
+            tostring(test_passed),
+            vim.inspect(debug_at_condition)
+        )
+        MiniTest.skip("No conversations available for integration test (" .. debug_info .. ")")
         return
     end
 
@@ -91,8 +157,37 @@ end
 -- GREEN: Tab navigation preserves state
 T["TabbedManager Integration"]["GREEN: Tab switching preserves conversation context"] = function()
     child.lua([[
-        local TabbedManager = require("cc-tui.ui.tabbed_manager")
+        -- Set up test data directory access
+        local test_data_path = vim.fn.expand("~/Code/cc-tui.nvim/docs/test/projects/-Users-kyle-Code-cc-tui-nvim")
 
+        -- Load real test conversations
+        local real_conversations = {}
+        local files = vim.fn.glob(test_data_path .. "/*.jsonl", false, true)
+        for _, filepath in ipairs(files) do
+            local uuid = vim.fs.basename(filepath):gsub("%.jsonl$", "")
+            table.insert(real_conversations, {
+                id = uuid,
+                path = filepath,
+                title = "Test Conversation " .. uuid:sub(1, 8),
+                timestamp = "2024-01-01T12:00:00Z",
+                message_count = 5,
+                size = vim.fn.getfsize(filepath)
+            })
+        end
+
+        if #real_conversations == 0 then
+            _G.no_conversations = true
+            return
+        end
+
+        -- Mock ProjectDiscovery to return test conversations
+        local ProjectDiscovery = require("cc-tui.services.project_discovery")
+        local original_list_conversations = ProjectDiscovery.list_conversations
+        ProjectDiscovery.list_conversations = function()
+            return real_conversations
+        end
+
+        local TabbedManager = require("cc-tui.ui.tabbed_manager")
         local manager = TabbedManager.new({ default_tab = "browse" })
         manager:show()
         _G.test_manager = manager
@@ -123,6 +218,9 @@ T["TabbedManager Integration"]["GREEN: Tab switching preserves conversation cont
         else
             _G.no_conversations = true
         end
+
+        -- Restore original function
+        ProjectDiscovery.list_conversations = original_list_conversations
     ]])
 
     local no_conversations = child.lua_get("_G.no_conversations")
@@ -286,6 +384,24 @@ T["End-to-End Workflows"]["GREEN: Complete Browse to Current workflow with real 
     end
 
     child.lua([[
+        -- Set up test data directory access
+        local test_data_path = vim.fn.expand("~/Code/cc-tui.nvim/docs/test/projects/-Users-kyle-Code-cc-tui-nvim")
+
+        -- Load real test conversations
+        local real_conversations = {}
+        local files = vim.fn.glob(test_data_path .. "/*.jsonl", false, true)
+        for _, filepath in ipairs(files) do
+            local uuid = vim.fs.basename(filepath):gsub("%.jsonl$", "")
+            table.insert(real_conversations, {
+                id = uuid,
+                path = filepath,
+                title = "Test Conversation " .. uuid:sub(1, 8),
+                timestamp = "2024-01-01T12:00:00Z",
+                message_count = 5,
+                size = vim.fn.getfsize(filepath)
+            })
+        end
+
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
 
         -- Start the complete workflow
@@ -301,7 +417,12 @@ T["End-to-End Workflows"]["GREEN: Complete Browse to Current workflow with real 
             success = manager.current_tab == "browse"
         })
 
+        -- Inject test conversations into Browse view
         local browse_view = manager.views.browse
+        if browse_view then
+            browse_view.conversations = real_conversations
+        end
+
         local has_conversations = browse_view and #browse_view.conversations > 0
 
         table.insert(_G.workflow_steps, {
