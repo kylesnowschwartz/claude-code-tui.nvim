@@ -13,9 +13,13 @@ local function is_test_environment()
         return true
     end
 
-    -- Check for headless mode (often used in testing)
-    if vim.fn.has("gui_running") == 0 and vim.opt.headless._value then
-        return true
+    -- Check for headless mode by checking command line arguments
+    if vim.fn.has("gui_running") == 0 and vim.v.argv then
+        for _, arg in ipairs(vim.v.argv) do
+            if arg == "--headless" then
+                return true
+            end
+        end
     end
 
     -- Check if called from test files
