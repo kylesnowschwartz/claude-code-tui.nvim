@@ -198,7 +198,7 @@ Tool uses are linked to their results via IDs:
 - **Rich metadata**: Every message includes git branch, working directory, CLI version
 - **Conversation threading**: `parentUuid` creates message chains
 - **Mixed content formats**: User content can be string OR array depending on context
-- **MCP tools**: Prefixed with `mcp__server__tool` pattern
+- **MCP tools**: Prefixed with `mcp__server__tool` pattern (e.g., `mcp__mcphub__context7__get-library-docs`, `mcp__zen__debug`)
 - **Tool result metadata**: Additional fields like `toolUseResult` flag for parsing
 - **SimpleClaude integration**: Special XML-like command format for CLI shortcuts
 

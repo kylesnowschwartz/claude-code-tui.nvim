@@ -96,18 +96,21 @@ function M.refresh()
         return
     end
 
-    if #main_state.messages > 0 then
-        -- Rebuild tree from current messages
-        local session_info = Parser.get_session_info(main_state.messages)
-        local root = TreeBuilder.build_tree(main_state.messages, session_info)
-        main_state.tree_data = root
-
-        -- Update UI
-        UIManager.update(root, main_state.messages)
-    else
-        -- Just refresh current UI
+    -- Reload data from source
+    local root, err, messages = DataLoader.load_test_data()
+    if not root then
+        log.debug("main", "Failed to reload test data during refresh: " .. (err or "unknown error"))
+        -- Fall back to refreshing existing UI
         UIManager.refresh()
+        return
     end
+
+    -- Update state with reloaded data
+    main_state.messages = messages or {}
+    main_state.tree_data = root
+
+    -- Update UI with reloaded data
+    UIManager.update(root, messages or {})
 end
 
 ---Process a new JSONL line (for streaming support)
