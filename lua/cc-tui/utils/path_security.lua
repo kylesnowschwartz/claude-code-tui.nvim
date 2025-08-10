@@ -92,6 +92,7 @@ function M.is_safe_claude_path(path, allow_test_paths)
                 or path:match("^/var/folders/")
                 or path:match("^/test/")
                 or path:match("^/non/")
+                or path:match("/docs/test/projects/")
             then
                 return true, nil
             end
