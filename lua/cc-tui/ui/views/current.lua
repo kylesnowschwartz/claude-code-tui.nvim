@@ -77,7 +77,7 @@ function CurrentView:load_specific_conversation(conversation_path)
     self.conversation_path = conversation_path
 
     -- Use DataLoader to load the specific conversation
-    DataLoader.load_conversation(conversation_path, function(messages, root, session_info, path)
+    DataLoader.load_conversation(conversation_path, function(messages, root, _, path)
         self.messages = messages or {}
         self.tree_data = root
         self.conversation_path = path

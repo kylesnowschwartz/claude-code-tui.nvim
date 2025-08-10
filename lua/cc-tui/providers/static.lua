@@ -28,7 +28,7 @@ local M = setmetatable({}, { __index = DataProvider })
 local default_config = {
     limit = 500, -- Maximum lines to load from test data
     lines = nil, -- Optional pre-loaded lines
-    uuid = nil,  -- Optional conversation UUID
+    uuid = nil, -- Optional conversation UUID
 }
 
 ---Create a new static data provider instance
@@ -52,12 +52,18 @@ function M:new(config)
     setmetatable(provider, { __index = self })
 
     if provider.lines then
-        log.debug("provider.static", string.format("Created static provider with %d pre-loaded lines (UUID: %s)", 
-            #provider.lines, provider.uuid or "unknown"))
+        log.debug(
+            "provider.static",
+            string.format(
+                "Created static provider with %d pre-loaded lines (UUID: %s)",
+                #provider.lines,
+                provider.uuid or "unknown"
+            )
+        )
     else
         log.debug("provider.static", string.format("Created static provider with limit: %d", provider.limit))
     end
-    
+
     return provider
 end
 
@@ -70,7 +76,7 @@ function M:start()
     self:_trigger_callback("on_start")
 
     local lines
-    
+
     if self.lines then
         -- Use pre-loaded lines (real data)
         lines = self.lines

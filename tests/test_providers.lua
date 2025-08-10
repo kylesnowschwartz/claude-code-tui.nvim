@@ -375,6 +375,10 @@ end
 
 T["ConversationProvider"]["handles non-existent file"] = function()
     child.lua([[
+        -- Initialize global state for tests
+        _G.CcTui = _G.CcTui or {}
+        _G.CcTui.config = _G.CcTui.config or {}
+
         local ConversationProvider = require('cc-tui.providers.conversation')
 
         local provider = ConversationProvider.new('/non/existent/file.jsonl')
@@ -392,14 +396,18 @@ end
 
 T["ConversationProvider"]["caches parsed messages"] = function()
     child.lua([[
+        -- Initialize global state for tests
+        _G.CcTui = _G.CcTui or {}
+        _G.CcTui.config = _G.CcTui.config or {}
+
         local ConversationProvider = require('cc-tui.providers.conversation')
 
         -- Create a temporary test file
         local test_file = '/tmp/test_conversation.jsonl'
         local file = io.open(test_file, 'w')
         if file then
-            file:write('{"type": "system", "subtype": "init"}\\n')
-            file:write('{"type": "user", "message": {"content": [{"type": "text", "text": "hello"}]}}\\n')
+            file:write('{"type": "system", "subtype": "init"}\n')
+            file:write('{"type": "user", "message": {"content": [{"type": "text", "text": "hello"}]}}\n')
             file:close()
         end
 

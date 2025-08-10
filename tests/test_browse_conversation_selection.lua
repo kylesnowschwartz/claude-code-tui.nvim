@@ -278,36 +278,41 @@ describe("Browse Conversation Selection", function()
 end)
 
 -- Since this uses TDD framework describe/it pattern, we need to convert to MiniTest
--- For now, create a simple MiniTest structure that shows the consolidation worked
+-- Convert to standard helpers pattern for consistency
+
+local Helpers = dofile("tests/helpers.lua")
+local child = Helpers.new_child_neovim()
 
 local MiniTest_T = MiniTest.new_set({
     hooks = {
         pre_case = function()
-            helpers.child.restart({ "-u", "scripts/minimal_init.lua" })
-            helpers.child.lua([[require('cc-tui').setup({})]])
+            child.restart({ "-u", "scripts/minimal_init.lua" })
+            child.lua([[require('cc-tui').setup({})]])
         end,
-        post_once = helpers.child.stop,
+        post_once = child.stop,
     },
 })
 
 MiniTest_T["Browse Conversation Selection Consolidated"] = MiniTest.new_set()
 
-MiniTest_T["Browse Conversation Selection Consolidated"]["RED: Current view needs load_specific_conversation method"] = function()
-    local has_method = helpers.child.lua_get([[
+MiniTest_T["Browse Conversation Selection Consolidated"]["GREEN: Current view has load_specific_conversation method"] = function()
+    child.lua([[
         local CurrentView = require("cc-tui.ui.views.current")
-        return type(CurrentView.load_specific_conversation) == "function"
+        _G.has_load_method = type(CurrentView.load_specific_conversation) == "function"
     ]])
 
-    -- RED: This should fail because method doesn't exist yet
-    if has_method then
-        error("UNEXPECTED: load_specific_conversation method already exists - test should be RED")
+    local has_method = child.lua_get("_G.has_load_method")
+
+    -- GREEN: This should now pass because method was implemented
+    if not has_method then
+        error("FAIL: load_specific_conversation method is missing - should be implemented")
     end
 end
 
 MiniTest_T["Browse Conversation Selection Consolidated"]["consolidation completed successfully"] = function()
     -- This test verifies that the consolidation process completed
     -- All browse selection tests are now in this single file
-    helpers.expect(true).to_equal(true)
+    Helpers.expect.truthy(true, "Consolidation completed")
 end
 
 return MiniTest_T

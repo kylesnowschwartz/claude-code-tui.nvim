@@ -48,6 +48,9 @@ function M:new(config)
     -- Create base provider instance
     local provider = DataProvider:new()
 
+    -- Store the merged config for test access
+    provider.config = config
+
     -- Add StreamProvider-specific properties
     provider.command = config.command
     provider.args = config.args or {}

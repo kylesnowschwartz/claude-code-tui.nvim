@@ -231,7 +231,7 @@ end
 M.get_display_strategy = DisplayStrategy.get_display_strategy
 M.should_use_rich_display = DisplayStrategy.should_use_rich_display
 M.should_use_rich_display_structured = DisplayStrategy.should_use_rich_display_structured
-M.is_json_content = function(content, tool_name, context)
+M.is_json_content = function(content, _, _)
     local is_json, _ = JsonDetector.is_json_content(content)
     return is_json
 end

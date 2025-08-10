@@ -222,7 +222,7 @@ end
 ---@param confidence number Current confidence level
 ---@param stream_context? table Optional context from tool linking
 ---@return table updated_result Updated classification result
-local function classify_tool_output(content, tool_name, base_result, confidence, stream_context)
+local function classify_tool_output(content, tool_name, base_result, _, stream_context)
     local result = vim.deepcopy(base_result)
     result.metadata.tool_name = tool_name
 

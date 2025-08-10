@@ -89,7 +89,7 @@ local function main()
             table.insert(invalid_files, {
                 file = filename,
                 path = filepath,
-                error = message
+                error = message,
             })
         end
 
