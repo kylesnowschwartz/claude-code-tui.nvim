@@ -173,7 +173,7 @@ function LogsView:refresh()
 end
 
 ---Set up logs view specific keymaps
-function LogsView:setup_keymaps()
+function LogsView:setup_keymaps(_)
     -- Could add keymaps for filtering by level, clearing logs, etc.
     -- For now, inherit base keymaps only
 end

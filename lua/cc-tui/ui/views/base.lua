@@ -35,7 +35,7 @@ function BaseView.new(manager, view_id)
 end
 
 ---Setup view-specific keymaps (override in subclasses)
-function BaseView:setup_keymaps()
+function BaseView:setup_keymaps(_)
     -- Default implementation - override in subclasses
     -- Views can add their own keymaps here
 end
