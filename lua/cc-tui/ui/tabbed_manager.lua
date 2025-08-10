@@ -14,7 +14,6 @@ local text_utils = require("cc-tui.utils.text")
 
 ---@class CcTui.UI.TabbedManager
 ---@field popup NuiPopup Main popup window
----@field split NuiPopup Deprecated: For backward compatibility, same as popup
 ---@field current_tab string Currently active tab ID
 ---@field tabs CcTui.TabConfig[] Tab configuration array
 ---@field views table<string, any> Tab content views by ID
@@ -206,7 +205,6 @@ function TabbedManager.new(opts)
     end
 
     self.popup = popup
-    self.split = popup -- Backward compatibility for tests
 
     -- Setup keymaps
     self:setup_keymaps()

@@ -16,15 +16,6 @@ else
         require("cc-tui").toggle()
     end, { desc = "Open CC-TUI tabbed interface (C/B/L/? tabs)" })
 
-    vim.api.nvim_create_user_command("CcTuiBrowse", function()
-        -- Show deprecation notice
-        vim.notify(
-            "CcTuiBrowse is deprecated. Use :CcTui then press 'B' or use :CcTui with browse tab.",
-            vim.log.levels.WARN
-        )
-        require("cc-tui").browse()
-    end, { desc = "[DEPRECATED] Browse Claude conversations - use :CcTui then press 'B'" })
-
     vim.api.nvim_create_user_command("CcTuiReload", function()
         -- Preserve current config
         local current_config = _G.CcTui and _G.CcTui.config or {}
@@ -45,5 +36,4 @@ end
 
 -- Development keymaps
 vim.keymap.set("n", "<leader>Cct", "<cmd>CcTui<cr>", { desc = "Toggle cc-tui" })
-vim.keymap.set("n", "<leader>Ccb", "<cmd>CcTuiBrowse<cr>", { desc = "Browse Claude conversations" })
 vim.keymap.set("n", "<leader>Ccr", "<cmd>CcTuiReload<cr>", { desc = "Reload cc-tui modules" })

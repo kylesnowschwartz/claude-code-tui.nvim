@@ -169,8 +169,8 @@ T["project_discovery_security"]["extract_metadata_blocks_unsafe_paths"] = functi
         local ProjectDiscovery = require('cc-tui.services.project_discovery')
 
         -- Try to extract metadata from unsafe paths
-        local title1, count1 = ProjectDiscovery.extract_conversation_metadata("../../../etc/passwd")
-        local title2, count2 = ProjectDiscovery.extract_conversation_metadata("/etc/hosts")
+        local title1, count1 = ProjectDiscovery.extract_conversation_metadata_sync("../../../etc/passwd")
+        local title2, count2 = ProjectDiscovery.extract_conversation_metadata_sync("/etc/hosts")
 
         _G.safe_failure = title1 == nil and count1 == 0 and title2 == nil and count2 == 0
     ]])
@@ -208,7 +208,7 @@ T["security_integration"]["full_workflow_security_test"] = function()
         _G.provider_blocked = not provider_success
 
         -- Test 3: Try metadata extraction on dangerous paths
-        local title, count = ProjectDiscovery.extract_conversation_metadata("/etc/hosts")
+        local title, count = ProjectDiscovery.extract_conversation_metadata_sync("/etc/hosts")
         _G.metadata_blocked = title == nil and count == 0
     ]])
 

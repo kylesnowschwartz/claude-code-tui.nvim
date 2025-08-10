@@ -79,16 +79,6 @@ function M.extract_conversation_metadata_sync(conversation_path)
     return MetadataExtractor.extract_sync(conversation_path)
 end
 
----Extract metadata from conversation file (backward compatibility - DEPRECATED)
----@param conversation_path string Path to conversation JSONL file
----@return string? title First user message as title
----@return number message_count Total number of messages
----@return string? timestamp ISO timestamp from first message
----@deprecated Use extract_conversation_metadata_async or extract_conversation_metadata_sync
-function M.extract_conversation_metadata(conversation_path)
-    return MetadataExtractor.extract_sync(conversation_path)
-end
-
 ---Get conversation metadata with lazy-loaded details - ASYNC
 ---@param conversation CcTui.ConversationMetadata Base conversation metadata
 ---@param callback function Callback(enriched_conversation)
@@ -100,14 +90,6 @@ end
 ---@param conversation CcTui.ConversationMetadata Base conversation metadata
 ---@return CcTui.ConversationMetadata enriched Enriched with title, message count, and timestamp
 function M.enrich_conversation_metadata_sync(conversation)
-    return ConversationRepository.enrich_metadata_sync(conversation)
-end
-
----Get conversation metadata with lazy-loaded details (backward compatibility - DEPRECATED)
----@param conversation CcTui.ConversationMetadata Base conversation metadata
----@return CcTui.ConversationMetadata enriched Enriched with title, message count, and timestamp
----@deprecated Use enrich_conversation_metadata_async or enrich_conversation_metadata_sync
-function M.enrich_conversation_metadata(conversation)
     return ConversationRepository.enrich_metadata_sync(conversation)
 end
 

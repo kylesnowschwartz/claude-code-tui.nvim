@@ -288,7 +288,7 @@ T["extract_conversation_metadata"]["extracts title and message count"] = functio
         file:close()
 
         -- Test metadata extraction
-        _G.title, _G.message_count = ProjectDiscovery.extract_conversation_metadata(temp_file)
+        _G.title, _G.message_count = ProjectDiscovery.extract_conversation_metadata_sync(temp_file)
 
         -- Clean up
         vim.fn.delete(temp_file)
@@ -318,7 +318,7 @@ T["extract_conversation_metadata"]["handles real Claude CLI format"] = function(
         file:close()
 
         -- Test metadata extraction with Claude CLI format
-        _G.claude_title, _G.claude_count = ProjectDiscovery.extract_conversation_metadata(temp_file)
+        _G.claude_title, _G.claude_count = ProjectDiscovery.extract_conversation_metadata_sync(temp_file)
 
         -- Clean up
         vim.fn.delete(temp_file)
@@ -333,14 +333,14 @@ T["extract_conversation_metadata"]["handles empty and invalid files"] = function
         local ProjectDiscovery = require('cc-tui.services.project_discovery')
 
         -- Test non-existent file
-        _G.title1, _G.count1 = ProjectDiscovery.extract_conversation_metadata("/non/existent/file.jsonl")
+        _G.title1, _G.count1 = ProjectDiscovery.extract_conversation_metadata_sync("/non/existent/file.jsonl")
 
         -- Test empty file
         local empty_file = vim.fn.tempname() .. ".jsonl"
         local file = io.open(empty_file, "w")
         file:close()
 
-        _G.title2, _G.count2 = ProjectDiscovery.extract_conversation_metadata(empty_file)
+        _G.title2, _G.count2 = ProjectDiscovery.extract_conversation_metadata_sync(empty_file)
 
         -- Clean up
         vim.fn.delete(empty_file)

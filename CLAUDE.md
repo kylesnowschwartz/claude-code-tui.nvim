@@ -50,7 +50,6 @@ make luals         # Download and run Lua Language Server analysis
 After making changes:
 1. `:CcTuiReload` - Reload plugin modules with debug enabled
 2. `:CcTui` - Open tabbed interface
-3. `:CcTuiBrowse` - [DEPRECATED] Use `:CcTui` then press 'B'
 
 ## Code Style Requirements
 
@@ -150,12 +149,10 @@ Uses `mini.test` with:
 
 ### User Commands
 - `:CcTui` - Open tabbed interface with Current/Browse/Logs/Help tabs
-- `:CcTuiBrowse` - [DEPRECATED] Use `:CcTui` then press 'B'
 - `:CcTuiReload` - Reload plugin modules with debug enabled (development)
 
 ### Development Keybindings
 - `<leader>Cct` - Toggle cc-tui interface
-- `<leader>Ccb` - Browse conversations (deprecated)
 - `<leader>Ccr` - Reload plugin modules
 
 ### Tab Navigation

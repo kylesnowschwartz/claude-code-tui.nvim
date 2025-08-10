@@ -27,16 +27,6 @@ function CcTui.disable()
     main.disable("public_api_disable")
 end
 
---- Browse Claude conversations in the current project
----@deprecated Use CcTui.enable("browse") or simply :CcTui then press 'B' - this maintains backward compatibility
-function CcTui.browse()
-    if _G.CcTui.config == nil then
-        _G.CcTui.config = config.options
-    end
-
-    main.browse()
-end
-
 -- setup CcTui options and merge them with user provided ones.
 function CcTui.setup(opts)
     _G.CcTui.config = config.setup(opts)

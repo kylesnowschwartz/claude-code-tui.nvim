@@ -1,6 +1,6 @@
 ---@brief [[
 --- Browse conversations view for CC-TUI tabbed interface
---- Shows conversation browser (replaces :CcTuiBrowse)
+--- Shows conversation browser in tabbed interface
 ---@brief ]]
 
 local BaseView = require("cc-tui.ui.views.base")

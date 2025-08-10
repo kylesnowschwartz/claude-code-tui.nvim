@@ -5,7 +5,7 @@
 --- ARCHITECTURE CHANGE: Unified tabbed interface replacing separate commands
 --- - TabbedManager handles unified UI with C/B/L/? tabs
 --- - Current tab shows conversation tree (replaces :CcTui)
---- - Browse tab shows conversation browser (replaces :CcTuiBrowse)
+--- - Browse tab shows conversation browser (unified interface)
 --- - Logs tab shows debug/activity logs
 --- - Help tab shows keybindings and usage instructions
 ---
@@ -191,22 +191,6 @@ end
 ---@return nil
 function M.stop_streaming()
     StreamManager.stop_streaming()
-end
-
----Browse Claude conversations in the current project (opens tabbed interface to Browse tab)
----@deprecated Use M.toggle("browse", "browse") instead - this maintains backward compatibility
----@return nil
-function M.browse()
-    log.debug("main", "Opening tabbed interface to Browse tab (legacy browse command)")
-
-    -- Open tabbed interface defaulting to browse tab
-    if main_state.tabbed_manager and main_state.tabbed_manager:is_active() then
-        -- Switch to browse tab if already open
-        main_state.tabbed_manager:switch_to_tab("browse")
-    else
-        -- Enable with browse tab as default
-        M.enable("legacy_browse", "browse")
-    end
 end
 
 ---Load conversation from JSONL file
