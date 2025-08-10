@@ -3,6 +3,7 @@
 --- Displays hierarchical tree of messages, tools, and results
 ---@brief ]]
 
+local ContentClassifier = require("cc-tui.utils.content_classifier")
 local ContentRenderer = require("cc-tui.ui.content_renderer")
 local Keymaps = require("cc-tui.keymaps")
 local NuiLine = require("nui.line")
@@ -410,7 +411,16 @@ function M.toggle_result_node(node, tree)
     end
 
     -- Determine if content should be rendered in popup vs inline
-    local should_use_rich_display = M.should_use_rich_display(result_data)
+    local should_use_rich_display
+    if result_data.structured_content then
+        should_use_rich_display = ContentClassifier.should_use_rich_display_structured(
+            result_data.structured_content,
+            result_data.content or ""
+        )
+    else
+        should_use_rich_display =
+            ContentClassifier.should_use_rich_display(result_data.content or "", result_data.is_error)
+    end
 
     if should_use_rich_display then
         -- Use rich content display via ContentRenderer
@@ -422,7 +432,8 @@ function M.toggle_result_node(node, tree)
             tool_name,
             result_data.content or "",
             vim.api.nvim_get_current_win(),
-            result_data.structured_content
+            result_data.structured_content,
+            nil -- TODO: Thread stream_context from Tree UI for enhanced classification
         )
 
         if content_window then
@@ -444,37 +455,6 @@ function M.toggle_result_node(node, tree)
             end
         end
     end
-end
-
----Determine if result content should use rich display or normal tree expansion
----@param result_data CcTui.ResultNode Result node data
----@return boolean should_use_rich_display Whether to use ContentRenderer
-function M.should_use_rich_display(result_data)
-    vim.validate({
-        result_data = { result_data, "table" },
-    })
-
-    -- Always use rich display for errors
-    if result_data.is_error then
-        return true
-    end
-
-    -- Use rich display if content is substantial
-    local content = result_data.content
-    if content and type(content) == "string" then
-        local line_count = select(2, content:gsub("\n", "")) + 1
-        local char_count = #content
-
-        -- Use rich display for:
-        -- - More than 5 lines
-        -- - More than 200 characters
-        -- - JSON-like content
-        if line_count > 5 or char_count > 200 or ContentRenderer.is_json_content(content) then
-            return true
-        end
-    end
-
-    return false
 end
 
 ---Find the parent tool node for a result node

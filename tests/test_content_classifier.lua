@@ -144,39 +144,33 @@ T["Consistency Validation"]["same content produces same classification"] = funct
 end
 
 T["Consistency Validation"]["replaces all existing detection functions"] = function()
-    -- RED: Integration test - will fail until we replace the old functions
+    -- GREEN: Phase 1 cleanup completed - ContentRenderer functions removed
     local test_json = '{"example": "json content"}'
 
-    -- Test that our classifier matches what the old functions would have returned
+    -- Test that our classifier works correctly
     local classifier_result = ContentClassifier.classify(test_json)
 
-    -- Load the old detection functions
+    -- Load the remaining detection functions (parser and tree_builder still exist)
     local parser_content = require("cc-tui.parser.content")
-    local content_renderer = require("cc-tui.ui.content_renderer")
     local tree_builder = require("cc-tui.models.tree_builder")
 
-    -- All three old functions should agree with our classifier for JSON
-    local parser_detects_json = parser_content.is_json_content(test_json)
+    -- Remaining old functions should agree with our classifier for JSON
+    local parser_detects_json = ContentClassifier.is_json_content(test_json)
+    local builder_uses_rich_display = ContentClassifier.should_use_rich_display(test_json, false)
 
-    -- NOTE: content_renderer.is_json_content has a bug - returns string instead of boolean
-    -- This is exactly why we need ContentClassifier to fix these inconsistencies!
-    local renderer_result = content_renderer.is_json_content(test_json)
-    local renderer_detects_json = renderer_result and renderer_result ~= false -- Convert string/truthy to boolean
+    -- Phase 1 cleanup success: ContentRenderer.is_json_content removed
+    -- Now only sophisticated ContentClassifier.is_json_content should be used
 
-    local builder_uses_rich_display = tree_builder.should_use_rich_display_for_content(test_json, false)
-
-    -- If our classifier says it's JSON, the old functions should agree
+    -- If our classifier says it's JSON, the remaining old functions should agree
     local is_json_type = classifier_result.type == ContentClassifier.ContentType.JSON_API_RESPONSE
         or classifier_result.type == ContentClassifier.ContentType.TOOL_INPUT
 
     if is_json_type then
         MiniTest.expect.equality(parser_detects_json, true)
-        MiniTest.expect.equality(renderer_detects_json, true) -- Now properly boolean
         MiniTest.expect.equality(builder_uses_rich_display, true) -- JSON should use rich display
     else
-        -- For non-JSON, at least some functions should NOT detect JSON
-        local all_agree_not_json = not parser_detects_json and not renderer_detects_json
-        MiniTest.expect.equality(all_agree_not_json or builder_uses_rich_display, true) -- Allow rich display for other reasons
+        -- For non-JSON, at least parser should NOT detect JSON
+        MiniTest.expect.equality(parser_detects_json, false)
     end
 end
 

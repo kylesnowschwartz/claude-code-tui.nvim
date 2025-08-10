@@ -3,6 +3,7 @@
 --- Converts parsed Claude Code messages into a tree of nodes
 ---@brief ]]
 
+local ContentClassifier = require("cc-tui.utils.content_classifier")
 local Node = require("cc-tui.models.node")
 
 ---@class CcTui.Models.TreeBuilder
@@ -304,11 +305,10 @@ function M.add_formatted_result_children(node, result_text, _, create_text_node,
     local should_use_rich_display
     if structured_content then
         -- DETERMINISTIC classification using structured Claude Code JSON data
-        local ContentClassifier = require("cc-tui.utils.content_classifier")
         should_use_rich_display = ContentClassifier.should_use_rich_display_structured(structured_content, result_text)
     else
-        -- Fallback to legacy inference-based classification
-        should_use_rich_display = M.should_use_rich_display_for_content(result_text, node.is_error)
+        -- Fallback: Use ContentClassifier directly instead of wrapper function
+        should_use_rich_display = ContentClassifier.should_use_rich_display(result_text, node.is_error)
     end
 
     if should_use_rich_display then
@@ -337,39 +337,6 @@ function M.add_formatted_result_children(node, result_text, _, create_text_node,
             table.insert(node.children, more_node)
         end
     end
-end
-
----Determine if content should use rich display (matches tree.lua logic)
----@param content string Content to check
----@param is_error? boolean Whether content is an error
----@return boolean should_use_rich_display Whether ContentRenderer should handle this
-function M.should_use_rich_display_for_content(content, is_error)
-    -- Always use rich display for errors
-    if is_error then
-        return true
-    end
-
-    -- Use rich display if content is substantial
-    if type(content) == "string" then
-        local line_count = M.count_result_lines(content)
-        local char_count = #content
-
-        -- Use rich display for:
-        -- - More than 5 lines
-        -- - More than 200 characters
-        -- - JSON-like content
-        if line_count > 5 or char_count > 200 then
-            return true
-        end
-
-        -- Check for JSON content using unified ContentClassifier
-        local ContentClassifier = require("cc-tui.utils.content_classifier")
-        if ContentClassifier.is_json_content(content) then
-            return true
-        end
-    end
-
-    return false
 end
 
 ---Format file content (Read tool results)

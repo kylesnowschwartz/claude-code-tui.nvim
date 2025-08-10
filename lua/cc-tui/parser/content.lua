@@ -3,6 +3,8 @@
 --- Analyzes and structures content for better readability and navigation
 ---@brief ]]
 
+local ContentClassifier = require("cc-tui.utils.content_classifier")
+
 ---@class CcTui.Parser.Content
 local M = {}
 
@@ -38,7 +40,7 @@ function M.detect_content_type(text)
     local normalized = text:gsub("^%s+", ""):gsub("%s+$", "")
 
     -- Detect JSON content
-    if M.is_json_content(normalized) then
+    if ContentClassifier.is_json_content(normalized) then
         local line_count = M.count_lines(text)
         return M.ContentType.JSON,
             {
@@ -86,15 +88,6 @@ function M.detect_content_type(text)
 
     -- Default to plain text
     return M.ContentType.PLAIN, {}
-end
-
----Check if content appears to be JSON
----@param text string Text to check
----@return boolean is_json Whether the text is JSON content
-function M.is_json_content(text)
-    -- REPLACED: Use unified ContentClassifier instead of fragmented logic
-    local ContentClassifier = require("cc-tui.utils.content_classifier")
-    return ContentClassifier.is_json_content(text)
 end
 
 ---Check if content is a code block
@@ -331,7 +324,7 @@ function M.split_into_semantic_segments(text)
     local segments
     if M.contains_multiple_sections(text) then
         segments = M.split_by_sections(text)
-    elseif M.is_json_content(text) then
+    elseif ContentClassifier.is_json_content(text) then
         segments = M.handle_json_content(text)
     elseif M.is_list_content(text) then
         segments = M.handle_list_content(text)
