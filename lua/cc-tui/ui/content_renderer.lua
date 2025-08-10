@@ -15,6 +15,14 @@ local M = {}
 ---@field buffer_id number Buffer ID for content
 ---@field content_type string Type of content displayed
 
+--- Window layering configuration
+---@class CcTui.WindowLayers
+local WINDOW_LAYERS = {
+    MAIN_UI = 10, -- Main CC-TUI popup window
+    CONTENT = 50, -- Content popups (command output, file content, etc.)
+    MODAL = 100, -- Modal dialogs (future use)
+}
+
 --- Active content windows by result node ID
 ---@type table<string, CcTui.ContentWindow>
 local active_windows = {}
@@ -158,6 +166,7 @@ function M.render_json_content(result_id, content, _metadata)
         popup = Popup({
             enter = true, -- Focus the window for navigation
             focusable = true,
+            zindex = WINDOW_LAYERS.CONTENT, -- Content popups appear above main window
             border = {
                 style = "rounded",
                 text = {
@@ -185,6 +194,7 @@ function M.render_json_content(result_id, content, _metadata)
         popup = Popup({
             enter = true,
             focusable = true,
+            zindex = WINDOW_LAYERS.CONTENT, -- Content popups appear above main window
             border = {
                 style = "single",
                 text = { top = " JSON [za to fold] ", top_align = "center" },
@@ -272,8 +282,9 @@ function M.render_file_content(result_id, content, metadata)
     local file_type = metadata.file_type or "text"
 
     local popup = Popup({
-        enter = false,
+        enter = true, -- Focus popup when it opens
         focusable = true,
+        zindex = WINDOW_LAYERS.CONTENT, -- Content popups appear above main window
         border = {
             style = "rounded",
             text = {
@@ -328,8 +339,9 @@ function M.render_command_output(result_id, content, _metadata)
     local line_count = #lines
 
     local popup = Popup({
-        enter = false,
+        enter = true, -- Focus popup when it opens
         focusable = true,
+        zindex = WINDOW_LAYERS.CONTENT, -- Content popups appear above main window
         border = {
             style = "double",
             text = {
@@ -382,8 +394,9 @@ function M.render_error_content(result_id, content, _metadata)
     local lines = vim.split(content, "\n")
 
     local popup = Popup({
-        enter = false,
+        enter = true, -- Focus popup when it opens
         focusable = true,
+        zindex = WINDOW_LAYERS.CONTENT, -- Content popups appear above main window
         border = {
             style = "double",
             text = { top = " ❌ Error ", top_align = "center" },
@@ -448,6 +461,7 @@ function M.render_generic_content(result_id, content, _metadata)
         popup = Popup({
             enter = true, -- FIXED: Now focusable and visible
             focusable = true,
+            zindex = WINDOW_LAYERS.CONTENT, -- Content popups appear above main window
             border = {
                 style = "rounded",
                 text = {
@@ -474,6 +488,7 @@ function M.render_generic_content(result_id, content, _metadata)
         popup = Popup({
             enter = true, -- FIXED: Now focusable
             focusable = true,
+            zindex = WINDOW_LAYERS.CONTENT, -- Content popups appear above main window
             border = {
                 style = "single",
                 text = {

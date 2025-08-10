@@ -17,6 +17,14 @@ local M = {}
 ---@field popup NuiPopup? Main popup window
 ---@field tree NuiTree? Active tree component
 
+--- Window layering configuration
+---@class CcTui.WindowLayers
+local WINDOW_LAYERS = {
+    MAIN_UI = 10, -- Main CC-TUI popup window
+    CONTENT = 50, -- Content popups (command output, file content, etc.)
+    MODAL = 100, -- Modal dialogs (future use)
+}
+
 ---Internal UI state
 ---@type CcTui.UIState
 local ui_state = {
@@ -50,6 +58,7 @@ function M.initialize(tree_data, messages)
         },
         enter = true,
         focusable = true,
+        zindex = WINDOW_LAYERS.MAIN_UI, -- Main window uses base layer
         border = {
             style = "rounded",
             text = {
