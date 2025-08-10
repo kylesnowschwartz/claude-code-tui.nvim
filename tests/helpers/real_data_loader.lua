@@ -13,7 +13,7 @@ local REAL_DATA_PATH = vim.fn.expand("~/Code/cc-tui.nvim/docs/test/projects/-Use
 function M.get_available_conversations()
     local conversations = {}
     local handle = vim.uv.fs_scandir(REAL_DATA_PATH)
-    
+
     if handle then
         local name, type
         repeat
@@ -23,7 +23,7 @@ function M.get_available_conversations()
             end
         until not name
     end
-    
+
     table.sort(conversations)
     return conversations
 end
@@ -34,18 +34,18 @@ end
 ---@return string? error Error message if loading failed
 function M.load_conversation_by_uuid(uuid)
     local filepath = vim.fs.joinpath(REAL_DATA_PATH, uuid .. ".jsonl")
-    
+
     local file = io.open(filepath, "r")
     if not file then
         return {}, "Failed to open conversation file: " .. filepath
     end
-    
+
     local lines = {}
     for line in file:lines() do
         table.insert(lines, line)
     end
     file:close()
-    
+
     return lines, nil
 end
 
@@ -57,7 +57,7 @@ function M.load_small_conversation()
     local conversations = M.get_available_conversations()
     local smallest_file = nil
     local smallest_size = math.huge
-    
+
     for _, filepath in ipairs(conversations) do
         local stat = vim.uv.fs_stat(filepath)
         if stat and stat.size < smallest_size then
@@ -65,22 +65,22 @@ function M.load_small_conversation()
             smallest_file = filepath
         end
     end
-    
+
     if not smallest_file then
         return {}, "No conversation files found", nil
     end
-    
+
     local file = io.open(smallest_file, "r")
     if not file then
         return {}, "Failed to open file: " .. smallest_file, nil
     end
-    
+
     local lines = {}
     for line in file:lines() do
         table.insert(lines, line)
     end
     file:close()
-    
+
     local uuid = vim.fs.basename(smallest_file):gsub("%.jsonl$", "")
     return lines, nil, uuid
 end
@@ -93,7 +93,7 @@ function M.load_medium_conversation()
     local conversations = M.get_available_conversations()
     local target_size = nil
     local best_file = nil
-    
+
     -- Look for conversations between 20-100 lines
     for _, filepath in ipairs(conversations) do
         local line_count = 0
@@ -103,34 +103,34 @@ function M.load_medium_conversation()
                 line_count = line_count + 1
             end
             file:close()
-            
+
             if line_count >= 20 and line_count <= 100 and (not target_size or line_count < target_size) then
                 target_size = line_count
                 best_file = filepath
             end
         end
     end
-    
+
     if not best_file then
         -- Fallback to any available conversation
         best_file = conversations[1]
     end
-    
+
     if not best_file then
         return {}, "No conversation files found", nil
     end
-    
+
     local file = io.open(best_file, "r")
     if not file then
         return {}, "Failed to open file: " .. best_file, nil
     end
-    
+
     local lines = {}
     for line in file:lines() do
         table.insert(lines, line)
     end
     file:close()
-    
+
     local uuid = vim.fs.basename(best_file):gsub("%.jsonl$", "")
     return lines, nil, uuid
 end
@@ -143,7 +143,7 @@ function M.load_large_conversation()
     local conversations = M.get_available_conversations()
     local largest_file = nil
     local largest_size = 0
-    
+
     for _, filepath in ipairs(conversations) do
         local stat = vim.uv.fs_stat(filepath)
         if stat and stat.size > largest_size then
@@ -151,22 +151,22 @@ function M.load_large_conversation()
             largest_file = filepath
         end
     end
-    
+
     if not largest_file then
         return {}, "No conversation files found", nil
     end
-    
+
     local file = io.open(largest_file, "r")
     if not file then
         return {}, "Failed to open file: " .. largest_file, nil
     end
-    
+
     local lines = {}
     for line in file:lines() do
         table.insert(lines, line)
     end
     file:close()
-    
+
     local uuid = vim.fs.basename(largest_file):gsub("%.jsonl$", "")
     return lines, nil, uuid
 end
@@ -177,14 +177,14 @@ end
 function M.get_conversation_metadata(uuid)
     local conversations = M.get_available_conversations()
     local metadata = {}
-    
+
     for _, filepath in ipairs(conversations) do
         local file_uuid = vim.fs.basename(filepath):gsub("%.jsonl$", "")
-        
+
         if not uuid or uuid == file_uuid then
             local stat = vim.uv.fs_stat(filepath)
             local line_count = 0
-            
+
             -- Count lines efficiently
             local file = io.open(filepath, "r")
             if file then
@@ -193,7 +193,7 @@ function M.get_conversation_metadata(uuid)
                 end
                 file:close()
             end
-            
+
             table.insert(metadata, {
                 uuid = file_uuid,
                 filepath = filepath,
@@ -203,24 +203,25 @@ function M.get_conversation_metadata(uuid)
             })
         end
     end
-    
+
     return metadata
 end
 
----Categorize conversation by size for test selection
+---Categorize conversation by size for test selection (enhanced for TDD test plan)
 ---@param line_count number Number of lines in conversation
 ---@return string category Size category
 function M.categorize_by_size(line_count)
-    if line_count < 10 then
-        return "tiny"
-    elseif line_count < 50 then
-        return "small"
-    elseif line_count < 200 then
-        return "medium"
-    elseif line_count < 500 then
-        return "large"
+    -- Enhanced categorization based on TEST_REFACTORING_PLAN.md
+    if line_count < 5 then
+        return "tiny" -- Fast unit tests, basic functionality validation
+    elseif line_count < 25 then
+        return "small" -- Standard integration tests, typical conversation handling
+    elseif line_count < 100 then
+        return "medium" -- Comprehensive feature testing, realistic usage scenarios
+    elseif line_count < 300 then
+        return "large" -- Stress testing, performance validation
     else
-        return "huge"
+        return "huge" -- Memory management, performance edge cases
     end
 end
 
@@ -229,10 +230,10 @@ end
 ---@return function provider_factory Function that creates StaticProvider with real data
 function M.create_real_data_provider(conversation_type)
     conversation_type = conversation_type or "small"
-    
+
     return function()
         local lines, err, uuid
-        
+
         if conversation_type == "small" then
             lines, err, uuid = M.load_small_conversation()
         elseif conversation_type == "medium" then
@@ -244,17 +245,17 @@ function M.create_real_data_provider(conversation_type)
             lines, err = M.load_conversation_by_uuid(conversation_type)
             uuid = conversation_type
         end
-        
+
         if err then
             error("Failed to load real conversation data: " .. err)
         end
-        
+
         local StaticProvider = require("cc-tui.providers.static")
-        local provider = StaticProvider:new({ 
+        local provider = StaticProvider:new({
             lines = lines,
             uuid = uuid,
         })
-        
+
         return provider
     end
 end
@@ -267,13 +268,121 @@ function M.validate_real_data_available()
     if not stat or stat.type ~= "directory" then
         return false, "Real data directory not found: " .. REAL_DATA_PATH
     end
-    
+
     local conversations = M.get_available_conversations()
     if #conversations == 0 then
         return false, "No JSONL conversation files found in: " .. REAL_DATA_PATH
     end
-    
+
     return true, nil
+end
+
+-- TDD-FRIENDLY ENHANCEMENTS FOR TEST REFACTORING PLAN
+
+---Get conversations by category for targeted testing
+---@param category string "tiny", "small", "medium", "large", "huge"
+---@return table[] conversations Array of conversation metadata in specified category
+function M.get_conversations_by_category(category)
+    local all_metadata = M.get_conversation_metadata()
+    local filtered = {}
+
+    for _, metadata in ipairs(all_metadata) do
+        if metadata.category == category then
+            table.insert(filtered, metadata)
+        end
+    end
+
+    -- Sort by size within category (smallest first for deterministic tests)
+    table.sort(filtered, function(a, b)
+        return a.line_count < b.line_count
+    end)
+
+    return filtered
+end
+
+---Load conversation by category (gets first available in category)
+---@param category string "tiny", "small", "medium", "large", "huge"
+---@return string[] lines Array of JSONL lines
+---@return string? error Error message if loading failed
+---@return string? uuid UUID of loaded conversation
+---@return table? metadata Conversation metadata
+function M.load_conversation_by_category(category)
+    local conversations = M.get_conversations_by_category(category)
+
+    if #conversations == 0 then
+        return {}, "No conversations found in category: " .. category, nil, nil
+    end
+
+    local metadata = conversations[1] -- Get smallest in category for consistent tests
+    local lines, err = M.load_conversation_by_uuid(metadata.uuid)
+
+    return lines, err, metadata.uuid, metadata
+end
+
+---Get comprehensive test data overview for planning
+---@return table overview Test data overview with categories and counts
+function M.get_test_data_overview()
+    local all_metadata = M.get_conversation_metadata()
+    local overview = {
+        total_conversations = #all_metadata,
+        categories = {
+            tiny = {},
+            small = {},
+            medium = {},
+            large = {},
+            huge = {},
+        },
+        size_range = {
+            smallest_lines = math.huge,
+            largest_lines = 0,
+            smallest_bytes = math.huge,
+            largest_bytes = 0,
+        },
+    }
+
+    -- Categorize and collect stats
+    for _, metadata in ipairs(all_metadata) do
+        local category = metadata.category
+        table.insert(overview.categories[category], metadata)
+
+        -- Update size range
+        overview.size_range.smallest_lines = math.min(overview.size_range.smallest_lines, metadata.line_count)
+        overview.size_range.largest_lines = math.max(overview.size_range.largest_lines, metadata.line_count)
+        overview.size_range.smallest_bytes = math.min(overview.size_range.smallest_bytes, metadata.size_bytes)
+        overview.size_range.largest_bytes = math.max(overview.size_range.largest_bytes, metadata.size_bytes)
+    end
+
+    -- Add category counts
+    for category, conversations in pairs(overview.categories) do
+        overview.categories[category] = {
+            count = #conversations,
+            conversations = conversations,
+        }
+    end
+
+    return overview
+end
+
+---Create TDD test provider factory with category selection
+---@param category string "tiny", "small", "medium", "large", "huge"
+---@return function provider_factory Function that creates StaticProvider with categorized real data
+function M.create_categorized_provider(category)
+    return function()
+        local lines, err, uuid, metadata = M.load_conversation_by_category(category)
+
+        if err then
+            error("Failed to load " .. category .. " conversation data: " .. err)
+        end
+
+        local StaticProvider = require("cc-tui.providers.static")
+        local provider = StaticProvider:new({
+            lines = lines,
+            uuid = uuid,
+            metadata = metadata,
+        })
+
+        return provider, metadata
+    end
 end
 
 return M
