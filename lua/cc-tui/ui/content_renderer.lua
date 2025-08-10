@@ -3,77 +3,30 @@
 --- Handles rich text display, syntax highlighting, and proper formatting
 ---@brief ]]
 
+local ContentClassifier = require("cc-tui.utils.content_classifier")
 local Popup = require("nui.popup")
 
 ---@class CcTui.UI.ContentRenderer
 local M = {}
 
----@enum CcTui.ContentDisplayType
-M.ContentType = {
-    JSON = "json",
-    FILE_CONTENT = "file_content",
-    COMMAND_OUTPUT = "command_output",
-    ERROR = "error",
-    GENERIC_TEXT = "generic_text",
-}
-
 ---@class CcTui.ContentWindow
 ---@field popup? NuiPopup Active popup window
 ---@field split? NuiSplit Active split window
 ---@field buffer_id number Buffer ID for content
----@field content_type CcTui.ContentDisplayType Type of content displayed
+---@field content_type string Type of content displayed
 
 --- Active content windows by result node ID
 ---@type table<string, CcTui.ContentWindow>
 local active_windows = {}
 
----Detect content type based on tool and content analysis
----@param content string Content to analyze
----@param tool_name? string Name of the tool that generated the content
----@return CcTui.ContentDisplayType type Detected content type
----@return table metadata Additional metadata about content
-function M.detect_content_type(content, tool_name)
-    vim.validate({
-        content = { content, "string" },
-        tool_name = { tool_name, "string", true },
-    })
+-- REMOVED: detect_content_type() function (33 lines removed)
+-- Phase 1 Cleanup: This legacy function has been removed in favor of
+-- ContentClassifier.classify_from_structured_data() which provides deterministic
+-- classification using Claude Code JSON structure instead of inference-based detection.
 
-    -- Error detection (highest priority)
-    if content:match("^Error:") or content:match("^error:") or content:match("Exception") then
-        return M.ContentType.ERROR, { error_type = "runtime_error" }
-    end
-
-    -- Tool-specific content detection
-    if tool_name == "Read" then
-        -- File content - detect file type if possible
-        local file_ext = M.extract_file_extension(content)
-        return M.ContentType.FILE_CONTENT, { file_type = file_ext or "text" }
-    elseif tool_name == "Bash" then
-        return M.ContentType.COMMAND_OUTPUT, { shell_type = "bash" }
-    elseif tool_name and tool_name:match("^mcp__") then
-        -- MCP API responses - often JSON
-        if M.is_json_content(content) then
-            return M.ContentType.JSON, { api_source = tool_name }
-        else
-            return M.ContentType.GENERIC_TEXT, { api_source = tool_name }
-        end
-    end
-
-    -- Content-based detection
-    if M.is_json_content(content) then
-        return M.ContentType.JSON, {}
-    end
-
-    return M.ContentType.GENERIC_TEXT, {}
-end
-
----Check if content appears to be JSON
----@param content string Content to check
----@return boolean is_json Whether content is JSON
-function M.is_json_content(content)
-    local trimmed = content:match("^%s*(.-)%s*$")
-    return (trimmed:match("^{") and trimmed:match("}$")) or (trimmed:match("^%[") and trimmed:match("%]$"))
-end
+-- REMOVED: is_json_content() wrapper function (5 lines removed)
+-- Phase 1 Cleanup: This wrapper has been removed. Use ContentClassifier.is_json_content() directly
+-- or preferably ContentClassifier.classify_from_structured_data() for deterministic classification.
 
 ---Extract file extension from file content or path hints
 ---@param content string File content
@@ -99,18 +52,22 @@ function M.extract_file_extension(content)
     return "text"
 end
 
----Render content using appropriate NUI components
+---Render content using appropriate NUI components with context-aware ContentClassifier
 ---@param result_node_id string Unique ID for the result node
 ---@param tool_name? string Tool that generated the content
 ---@param content string Content to render
 ---@param parent_window? number Parent window for positioning
+---@param structured_content table REQUIRED: Original Claude Code JSON structure for deterministic classification
+---@param stream_context? table Optional Claude Code stream context for enhanced classification
 ---@return CcTui.ContentWindow? window Created content window or nil
-function M.render_content(result_node_id, tool_name, content, parent_window)
+function M.render_content(result_node_id, tool_name, content, parent_window, structured_content, stream_context)
     vim.validate({
         result_node_id = { result_node_id, "string" },
         tool_name = { tool_name, "string", true },
         content = { content, "string" },
         parent_window = { parent_window, "number", true },
+        structured_content = { structured_content, "table" }, -- REQUIRED after Phase 1 cleanup
+        stream_context = { stream_context, "table", true }, -- Optional for enhanced classification
     })
 
     local log = require("cc-tui.util.log")
@@ -127,17 +84,49 @@ function M.render_content(result_node_id, tool_name, content, parent_window)
     -- Close existing window for this result if open
     M.close_content_window(result_node_id)
 
-    local content_type, metadata = M.detect_content_type(content, tool_name)
-    log.debug("content_renderer", string.format("detected content_type: %s", content_type))
+    -- 🚀 ACTIVATE DORMANT INFRASTRUCTURE - Context-aware classification!
+    local classification
+    if stream_context then
+        classification = ContentClassifier.classify_with_stream_context(structured_content, content, stream_context)
+        log.debug(
+            "content_renderer",
+            string.format(
+                "🚀 CONTEXT-AWARE: Using ContentClassifier.classify_with_stream_context() - type=%s, strategy=%s, force_popup=%s",
+                classification.type,
+                classification.display_strategy,
+                tostring(classification.force_popup)
+            )
+        )
+    else
+        classification = ContentClassifier.classify_from_structured_data(structured_content, content)
+        log.debug(
+            "content_renderer",
+            string.format(
+                "🚀 BASIC: Using ContentClassifier.classify_from_structured_data() - type=%s, confidence=%.2f",
+                classification.type,
+                classification.confidence
+            )
+        )
+    end
+
+    -- Use ContentClassifier types directly
+    local content_type = classification.type
+    local metadata = classification.metadata
+
+    log.debug("content_renderer", string.format("final content_type: %s", content_type))
     local window
 
-    if content_type == M.ContentType.JSON then
+    if
+        content_type == ContentClassifier.ContentType.TOOL_INPUT
+        or content_type == ContentClassifier.ContentType.JSON_API_RESPONSE
+        or content_type == ContentClassifier.ContentType.ERROR_OBJECT
+    then
         window = M.render_json_content(result_node_id, content, metadata)
-    elseif content_type == M.ContentType.FILE_CONTENT then
+    elseif content_type == ContentClassifier.ContentType.FILE_CONTENT then
         window = M.render_file_content(result_node_id, content, metadata)
-    elseif content_type == M.ContentType.COMMAND_OUTPUT then
+    elseif content_type == ContentClassifier.ContentType.COMMAND_OUTPUT then
         window = M.render_command_output(result_node_id, content, metadata)
-    elseif content_type == M.ContentType.ERROR then
+    elseif content_type == ContentClassifier.ContentType.ERROR_CONTENT then
         window = M.render_error_content(result_node_id, content, metadata)
     else
         window = M.render_generic_content(result_node_id, content, metadata)
@@ -268,7 +257,7 @@ function M.render_json_content(result_id, content, _metadata)
     return {
         popup = popup,
         buffer_id = popup.bufnr,
-        content_type = M.ContentType.JSON,
+        content_type = ContentClassifier.ContentType.JSON_API_RESPONSE,
     }
 end
 
@@ -325,7 +314,7 @@ function M.render_file_content(result_id, content, metadata)
     return {
         popup = popup,
         buffer_id = popup.bufnr,
-        content_type = M.ContentType.FILE_CONTENT,
+        content_type = ContentClassifier.ContentType.FILE_CONTENT,
     }
 end
 
@@ -380,7 +369,7 @@ function M.render_command_output(result_id, content, _metadata)
     return {
         popup = popup,
         buffer_id = popup.bufnr,
-        content_type = M.ContentType.COMMAND_OUTPUT,
+        content_type = ContentClassifier.ContentType.COMMAND_OUTPUT,
     }
 end
 
@@ -436,7 +425,7 @@ function M.render_error_content(result_id, content, _metadata)
     return {
         popup = popup,
         buffer_id = popup.bufnr,
-        content_type = M.ContentType.ERROR,
+        content_type = ContentClassifier.ContentType.ERROR_CONTENT,
     }
 end
 
@@ -563,7 +552,7 @@ function M.render_generic_content(result_id, content, _metadata)
     return {
         popup = popup,
         buffer_id = popup.bufnr,
-        content_type = M.ContentType.GENERIC_TEXT,
+        content_type = ContentClassifier.ContentType.GENERIC_TEXT,
     }
 end
 

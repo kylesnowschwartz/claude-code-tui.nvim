@@ -409,8 +409,9 @@ function M.toggle_result_node(node, tree)
         return
     end
 
-    -- Determine if content should be rendered in popup vs inline
-    local should_use_rich_display = M.should_use_rich_display(result_data)
+    -- Use display decision computed during tree construction (eliminates duplication)
+    -- This maintains single source of truth principle from Phase 2 refactoring
+    local should_use_rich_display = result_data.use_rich_display
 
     if should_use_rich_display then
         -- Use rich content display via ContentRenderer
@@ -421,7 +422,9 @@ function M.toggle_result_node(node, tree)
             result_data.id,
             tool_name,
             result_data.content or "",
-            vim.api.nvim_get_current_win()
+            vim.api.nvim_get_current_win(),
+            result_data.structured_content,
+            result_data.stream_context -- 🚀 ACTIVATED: Stream context threading for enhanced classification
         )
 
         if content_window then
@@ -443,37 +446,6 @@ function M.toggle_result_node(node, tree)
             end
         end
     end
-end
-
----Determine if result content should use rich display or normal tree expansion
----@param result_data CcTui.ResultNode Result node data
----@return boolean should_use_rich_display Whether to use ContentRenderer
-function M.should_use_rich_display(result_data)
-    vim.validate({
-        result_data = { result_data, "table" },
-    })
-
-    -- Always use rich display for errors
-    if result_data.is_error then
-        return true
-    end
-
-    -- Use rich display if content is substantial
-    local content = result_data.content
-    if content and type(content) == "string" then
-        local line_count = select(2, content:gsub("\n", "")) + 1
-        local char_count = #content
-
-        -- Use rich display for:
-        -- - More than 5 lines
-        -- - More than 200 characters
-        -- - JSON-like content
-        if line_count > 5 or char_count > 200 or ContentRenderer.is_json_content(content) then
-            return true
-        end
-    end
-
-    return false
 end
 
 ---Find the parent tool node for a result node

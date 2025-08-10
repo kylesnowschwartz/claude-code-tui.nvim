@@ -3,6 +3,7 @@
 --- Converts parsed Claude Code messages into a tree of nodes
 ---@brief ]]
 
+local ContentClassifier = require("cc-tui.utils.content_classifier")
 local Node = require("cc-tui.models.node")
 
 ---@class CcTui.Models.TreeBuilder
@@ -208,13 +209,14 @@ function M.create_message_node_from_message(message, create_text_node)
     return node
 end
 
----Create result node from tool result content
+---Create result node from tool result content with Claude Code stream integration
 ---@param tool_use_id string Tool use identifier
----@param content table Tool result content
+---@param content table Tool result content (Claude Code structured data)
 ---@param create_text_node function Function to create unique text nodes
 ---@param tool_name? string Name of the tool that generated this result
+---@param stream_context? table Optional Claude Code stream context for enhanced classification
 ---@return CcTui.ResultNode? node Result node or nil
-function M.create_result_node_from_content(tool_use_id, content, create_text_node, tool_name)
+function M.create_result_node_from_content(tool_use_id, content, create_text_node, tool_name, stream_context)
     vim.validate({
         tool_use_id = { tool_use_id, "string" },
         content = { content, "table" },
@@ -241,11 +243,17 @@ function M.create_result_node_from_content(tool_use_id, content, create_text_nod
     end
 
     -- Create result node with tool-aware formatting
-    local node = M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name)
+    local node = M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name, content)
+
+    -- Store stream context in node for enhanced Tree UI classification
+    if stream_context then
+        node.stream_context = stream_context
+    end
 
     -- Add formatted content as children based on tool type and content length
+    -- Enhanced with Claude Code stream context for deterministic classification
     if result_text and result_text ~= "" then
-        M.add_formatted_result_children(node, result_text, tool_name, create_text_node)
+        M.add_formatted_result_children(node, result_text, tool_name, create_text_node, content)
     end
 
     return node
@@ -256,8 +264,9 @@ end
 ---@param result_text string Result content text
 ---@param is_error boolean Whether this is an error result
 ---@param tool_name? string Name of the tool
+---@param structured_content? table Original Claude Code JSON structure
 ---@return CcTui.ResultNode node Result node
-function M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name)
+function M.create_tool_aware_result_node(tool_use_id, result_text, is_error, tool_name, structured_content)
     local preview_text = "Result" -- luacheck: ignore 311
 
     if is_error then
@@ -281,23 +290,35 @@ function M.create_tool_aware_result_node(tool_use_id, result_text, is_error, too
         end
     end
 
-    return Node.create_result_node(tool_use_id, result_text, is_error, preview_text)
+    return Node.create_result_node(tool_use_id, result_text, is_error, preview_text, structured_content)
 end
 
 ---Add formatted children to result node based on content type
 ---@param node CcTui.ResultNode Result node to add children to
 ---@param result_text string Full result text
----@param _ string Name of the tool (unused)
+---@param tool_name? string Name of the tool
 ---@param create_text_node function Function to create text nodes
+---@param structured_content? table Original structured content from Claude Code JSON
 ---@return nil
-function M.add_formatted_result_children(node, result_text, _, create_text_node)
+function M.add_formatted_result_children(node, result_text, _, create_text_node, structured_content)
     local line_count = M.count_result_lines(result_text)
 
     -- Hybrid approach: Only add children for very small content
     -- Large content will be handled by ContentRenderer popup windows
 
-    -- Use rich display threshold logic (must match tree.lua logic)
-    local should_use_rich_display = M.should_use_rich_display_for_content(result_text, node.is_error)
+    -- SINGLE SOURCE OF TRUTH: Compute display decision once during tree construction
+    -- Store result in node metadata for Tree UI to reference (eliminates duplication)
+    local should_use_rich_display
+    if structured_content then
+        -- DETERMINISTIC classification using structured Claude Code JSON data
+        should_use_rich_display = ContentClassifier.should_use_rich_display_structured(structured_content, result_text)
+    else
+        -- Fallback: Use ContentClassifier directly
+        should_use_rich_display = ContentClassifier.should_use_rich_display(result_text, node.is_error)
+    end
+
+    -- Store display decision in node metadata for Tree UI consumption
+    node.use_rich_display = should_use_rich_display
 
     if should_use_rich_display then
         -- Content will be displayed via ContentRenderer - no children needed
@@ -326,170 +347,6 @@ function M.add_formatted_result_children(node, result_text, _, create_text_node)
         end
     end
 end
-
----Determine if content should use rich display (matches tree.lua logic)
----@param content string Content to check
----@param is_error? boolean Whether content is an error
----@return boolean should_use_rich_display Whether ContentRenderer should handle this
-function M.should_use_rich_display_for_content(content, is_error)
-    -- Always use rich display for errors
-    if is_error then
-        return true
-    end
-
-    -- Use rich display if content is substantial
-    if type(content) == "string" then
-        local line_count = M.count_result_lines(content)
-        local char_count = #content
-
-        -- Use rich display for:
-        -- - More than 5 lines
-        -- - More than 200 characters
-        -- - JSON-like content
-        if line_count > 5 or char_count > 200 then
-            return true
-        end
-
-        -- Check for JSON content
-        local trimmed = content:match("^%s*(.-)%s*$")
-        if (trimmed:match("^{") and trimmed:match("}$")) or (trimmed:match("^%[") and trimmed:match("%]$")) then
-            return true
-        end
-    end
-
-    return false
-end
-
----Format file content (Read tool results)
----@param node CcTui.ResultNode Result node
----@param content string File content
----@param create_text_node function Function to create text nodes
----@return nil
-function M.format_file_content(node, content, create_text_node)
-    -- For file content, show only first few lines for short files
-    local lines = vim.split(content, "\n")
-
-    if #lines <= 3 then
-        -- Very short files - show all lines
-        for i, line in ipairs(lines) do
-            local text_node = create_text_node(line, node.id, i)
-            table.insert(node.children, text_node)
-        end
-    elseif #lines <= 6 then
-        -- Short files - show first 3 lines only
-        for i = 1, math.min(3, #lines) do
-            local text_node = create_text_node(lines[i], node.id, i)
-            table.insert(node.children, text_node)
-        end
-        if #lines > 3 then
-            local more_node = create_text_node(string.format("... (%d more lines)", #lines - 3), node.id, 4)
-            table.insert(node.children, more_node)
-        end
-    else
-        -- Medium+ files - no children, preview is sufficient
-        -- This should not be reached due to parent logic, but here for safety
-        return
-    end
-end
-
----Format command output (Bash tool results)
----@param node CcTui.ResultNode Result node
----@param content string Command output
----@param create_text_node function Function to create text nodes
----@return nil
-function M.format_command_output(node, content, create_text_node)
-    local lines = vim.split(content, "\n")
-
-    if #lines <= 2 then
-        -- Very short output - show all
-        for i, line in ipairs(lines) do
-            local text_node = create_text_node(line, node.id, i)
-            table.insert(node.children, text_node)
-        end
-    elseif #lines <= 4 then
-        -- Short output - show first few lines
-        for i = 1, math.min(3, #lines) do
-            local text_node = create_text_node(lines[i], node.id, i)
-            table.insert(node.children, text_node)
-        end
-        if #lines > 3 then
-            local more_node = create_text_node(string.format("... (%d more lines)", #lines - 3), node.id, 4)
-            table.insert(node.children, more_node)
-        end
-    else
-        -- Medium+ output - no children, preview is sufficient
-        -- This should not be reached due to parent logic, but here for safety
-        return
-    end
-end
-
----Format API response (MCP tool results)
----@param node CcTui.ResultNode Result node
----@param content string API response content
----@param create_text_node function Function to create text nodes
----@return nil
-function M.format_api_response(node, content, create_text_node)
-    -- Try to detect JSON and format appropriately
-    local is_json = content:match("^%s*{") or content:match("^%s*%[")
-    local line_count = M.count_result_lines(content)
-
-    if is_json then
-        if line_count <= 3 then
-            -- Very short JSON - show formatted in one line
-            local formatted = content:gsub("[\n\r]", " "):gsub("%s+", " ")
-            local text_node = create_text_node(formatted, node.id, 1, 150)
-            table.insert(node.children, text_node)
-        elseif line_count <= 6 then
-            -- Short JSON - show first few lines
-            local lines = vim.split(content, "\n")
-            for i = 1, math.min(3, #lines) do
-                local text_node = create_text_node(lines[i], node.id, i)
-                table.insert(node.children, text_node)
-            end
-            if #lines > 3 then
-                local more_node = create_text_node(string.format("... (%d more lines)", #lines - 3), node.id, 4)
-                table.insert(node.children, more_node)
-            end
-        else
-            -- Long JSON - no children, preview is sufficient
-            return
-        end
-    else
-        M.format_generic_output(node, content, create_text_node)
-    end
-end
-
----Format generic tool output
----@param node CcTui.ResultNode Result node
----@param content string Output content
----@param create_text_node function Function to create text nodes
----@return nil
-function M.format_generic_output(node, content, create_text_node)
-    -- Generic formatting - conservative approach for readability
-    local line_count = M.count_result_lines(content)
-
-    if line_count <= 2 and #content <= 150 then
-        -- Very short content - show as is
-        local clean_text = content:gsub("[\n\r]", " "):gsub("%s+", " ")
-        local text_node = create_text_node(clean_text, node.id, 1)
-        table.insert(node.children, text_node)
-    elseif line_count <= 4 then
-        -- Short content - show first few lines
-        local lines = vim.split(content, "\n")
-        for i = 1, math.min(2, #lines) do
-            local text_node = create_text_node(lines[i], node.id, i)
-            table.insert(node.children, text_node)
-        end
-        if #lines > 2 then
-            local more_node = create_text_node(string.format("... (%d more lines)", #lines - 2), node.id, 3)
-            table.insert(node.children, more_node)
-        end
-    else
-        -- Medium+ content - no children, preview is sufficient
-        return
-    end
-end
-
 ---Count lines in result text
 ---@param text string Text to count
 ---@return number count Number of lines
