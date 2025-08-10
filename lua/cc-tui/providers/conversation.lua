@@ -5,8 +5,8 @@
 
 local DataProvider = require("cc-tui.providers.base")
 local Parser = require("cc-tui.parser.stream")
-local PathSecurity = require("cc-tui.util.path_security")
-local log = require("cc-tui.util.log")
+local PathSecurity = require("cc-tui.utils.path_security")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.ConversationProvider : CcTui.DataProvider
 ---@field file_path string Path to conversation JSONL file

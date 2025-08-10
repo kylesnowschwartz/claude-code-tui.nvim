@@ -20,7 +20,7 @@ local PluginLifecycle = require("cc-tui.core.plugin_lifecycle")
 local StreamManager = require("cc-tui.core.stream_manager")
 local TreeBuilder = require("cc-tui.models.tree_builder")
 local UIManager = require("cc-tui.core.ui_manager")
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 local state = require("cc-tui.state")
 
 ---@class CcTui.Main

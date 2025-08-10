@@ -7,7 +7,7 @@
 local Parser = require("cc-tui.parser.stream")
 local Popup = require("nui.popup")
 local Tree = require("cc-tui.ui.tree")
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 local state = require("cc-tui.state")
 
 ---@class CcTui.Core.UIManager

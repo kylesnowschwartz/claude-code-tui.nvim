@@ -8,8 +8,8 @@ local TestData = require("cc-tui.parser.test_data")
 
 -- Conditionally require log to handle test environments where global state isn't initialized
 local log
-if pcall(require, "cc-tui.util.log") and _G.CcTui then
-    log = require("cc-tui.util.log")
+if pcall(require, "cc-tui.utils.log") and _G.CcTui then
+    log = require("cc-tui.utils.log")
 else
     -- Simple fallback for test environments
     log = {

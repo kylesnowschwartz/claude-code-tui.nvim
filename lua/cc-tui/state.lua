@@ -2,7 +2,7 @@
 --- Global state management for CC-TUI plugin
 --- Handles enabled/disabled state and UI component lifecycle
 ---@brief ]]
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.State
 ---@field enabled boolean Whether CC-TUI is currently active

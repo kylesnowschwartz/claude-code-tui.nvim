@@ -3,7 +3,7 @@
 --- Provides helper functions to load and iterate through test data
 ---@brief ]]
 
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.Parser.TestData
 local M = {}

@@ -1,4 +1,4 @@
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 
 local CcTui = {}
 

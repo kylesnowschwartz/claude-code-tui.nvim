@@ -37,7 +37,7 @@
 --- Core functionality for CC-TUI window management
 --- Handles UI lifecycle, state coordination, and user interactions
 ---@brief ]]
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 local state = require("cc-tui.state")
 local Popup = require("nui.popup")
 
@@ -166,7 +166,7 @@ end
 
 ```lua
 local Job = require("plenary.job")          -- External dependencies first
-local log = require("cc-tui.util.log")     -- Internal utilities
+local log = require("cc-tui.utils.log")     -- Internal utilities
 local state = require("cc-tui.state")      -- Internal modules
 local Popup = require("nui.popup")         -- UI components last
 ```

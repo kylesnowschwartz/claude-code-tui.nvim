@@ -11,7 +11,7 @@ local StaticProvider = require("cc-tui.providers.static")
 local StreamProvider = require("cc-tui.providers.stream")
 local Tree = require("cc-tui.ui.tree")
 local TreeBuilder = require("cc-tui.models.tree_builder")
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 local state = require("cc-tui.state")
 
 ---@class CcTui.Main

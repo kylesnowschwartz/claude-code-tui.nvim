@@ -8,7 +8,7 @@ local NuiLine = require("nui.line")
 local NuiText = require("nui.text")
 local ProjectDiscovery = require("cc-tui.services.project_discovery")
 local Split = require("nui.split")
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.UI.ConversationBrowser
 ---@field split NuiSplit Main split window

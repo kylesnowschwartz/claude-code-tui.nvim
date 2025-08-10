@@ -21,7 +21,7 @@ T["path_traversal_protection"] = MiniTest.new_set()
 
 T["path_traversal_protection"]["blocks_parent_directory_traversal"] = function()
     child.lua([[
-        local PathSecurity = require('cc-tui.util.path_security')
+        local PathSecurity = require('cc-tui.utils.path_security')
 
         -- Test various path traversal attempts
         local safe1, err1 = PathSecurity.is_safe_claude_path("../../../etc/passwd")
@@ -38,7 +38,7 @@ end
 
 T["path_traversal_protection"]["blocks_absolute_paths"] = function()
     child.lua([[
-        local PathSecurity = require('cc-tui.util.path_security')
+        local PathSecurity = require('cc-tui.utils.path_security')
 
         -- Test absolute path attempts
         local safe1, err1 = PathSecurity.is_safe_claude_path("/etc/passwd")
@@ -55,7 +55,7 @@ end
 
 T["path_traversal_protection"]["requires_jsonl_extension"] = function()
     child.lua([[
-        local PathSecurity = require('cc-tui.util.path_security')
+        local PathSecurity = require('cc-tui.utils.path_security')
 
         -- Test non-JSONL files
         local safe1, err1 = PathSecurity.is_safe_claude_path("conversation.txt")
@@ -72,7 +72,7 @@ end
 
 T["path_traversal_protection"]["allows_valid_jsonl_files"] = function()
     child.lua([[
-        local PathSecurity = require('cc-tui.util.path_security')
+        local PathSecurity = require('cc-tui.utils.path_security')
 
         -- Test valid JSONL file names
         local safe1, err1 = PathSecurity.is_safe_claude_path("conversation-2024-01-15.jsonl")
@@ -92,7 +92,7 @@ T["secure_file_reading"] = MiniTest.new_set()
 
 T["secure_file_reading"]["blocks_unsafe_paths"] = function()
     child.lua([[
-        local PathSecurity = require('cc-tui.util.path_security')
+        local PathSecurity = require('cc-tui.utils.path_security')
 
         -- Try to read unsafe paths
         local lines1, err1 = PathSecurity.read_conversation_file_safe("../../../etc/passwd")
@@ -108,7 +108,7 @@ end
 
 T["secure_file_reading"]["handles_nonexistent_files"] = function()
     child.lua([[
-        local PathSecurity = require('cc-tui.util.path_security')
+        local PathSecurity = require('cc-tui.utils.path_security')
 
         -- Try to read non-existent file with valid path format
         local lines, err = PathSecurity.read_conversation_file_safe("nonexistent.jsonl")

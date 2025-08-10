@@ -4,7 +4,7 @@
 --- Handles plugin enable/disable state and initialization/cleanup
 ---@brief ]]
 
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 local state = require("cc-tui.state")
 
 ---@class CcTui.Core.PluginLifecycle

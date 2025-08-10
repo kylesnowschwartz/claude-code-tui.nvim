@@ -78,7 +78,7 @@ function M.render_content(result_node_id, tool_name, content, parent_window, str
         stream_context = { stream_context, "table", true }, -- Optional for enhanced classification
     })
 
-    local log = require("cc-tui.util.log")
+    local log = require("cc-tui.utils.log")
     log.debug(
         "content_renderer",
         string.format(
@@ -153,7 +153,7 @@ end
 ---@param _metadata table Content metadata (unused)
 ---@return CcTui.ContentWindow window Created content window
 function M.render_json_content(result_id, content, _metadata)
-    local log = require("cc-tui.util.log")
+    local log = require("cc-tui.utils.log")
     local lines = vim.split(content, "\n")
     local line_count = #lines
 
@@ -448,7 +448,7 @@ end
 ---@param metadata table Content metadata
 ---@return CcTui.ContentWindow window Created content window
 function M.render_generic_content(result_id, content, _metadata)
-    local log = require("cc-tui.util.log")
+    local log = require("cc-tui.utils.log")
     local lines = vim.split(content, "\n")
     local line_count = #lines
 

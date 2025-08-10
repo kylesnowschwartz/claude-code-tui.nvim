@@ -5,7 +5,7 @@
 ---@brief ]]
 
 local StreamProvider = require("cc-tui.providers.stream")
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.Core.StreamManager
 local M = {}

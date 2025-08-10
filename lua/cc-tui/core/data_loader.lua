@@ -8,7 +8,7 @@ local ConversationProvider = require("cc-tui.providers.conversation")
 local Parser = require("cc-tui.parser.stream")
 local StaticProvider = require("cc-tui.providers.static")
 local TreeBuilder = require("cc-tui.models.tree_builder")
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.Core.DataLoader
 local M = {}

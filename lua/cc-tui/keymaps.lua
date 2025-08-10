@@ -3,7 +3,7 @@
 --- Manages global and buffer-local keymaps
 ---@brief ]]
 
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.Keymaps
 local M = {}

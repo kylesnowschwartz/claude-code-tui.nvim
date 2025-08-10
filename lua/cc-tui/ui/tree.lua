@@ -7,7 +7,7 @@ local ContentRenderer = require("cc-tui.ui.content_renderer")
 local Keymaps = require("cc-tui.keymaps")
 local NuiLine = require("nui.line")
 local NuiTree = require("nui.tree")
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.Ui.Tree
 local M = {}

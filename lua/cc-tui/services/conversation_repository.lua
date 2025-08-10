@@ -5,7 +5,7 @@
 
 local ClaudePathMapper = require("cc-tui.services.claude_path_mapper")
 local MetadataExtractor = require("cc-tui.services.metadata_extractor")
-local log = require("cc-tui.util.log")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.Services.ConversationRepository
 local M = {}

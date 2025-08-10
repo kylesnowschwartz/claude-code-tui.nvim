@@ -3,8 +3,8 @@
 --- Handles extraction of titles, message counts, and timestamps from JSONL files
 ---@brief ]]
 
-local PathSecurity = require("cc-tui.util.path_security")
-local log = require("cc-tui.util.log")
+local PathSecurity = require("cc-tui.utils.path_security")
+local log = require("cc-tui.utils.log")
 
 ---@class CcTui.Services.MetadataExtractor
 local M = {}
