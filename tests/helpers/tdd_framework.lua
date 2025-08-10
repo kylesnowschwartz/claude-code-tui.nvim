@@ -5,6 +5,18 @@
 
 local M = {}
 
+-- Export mini.test child for testing
+M.child = require("mini.test").new_child_neovim()
+
+-- Basic describe/it structure for compatibility with mini.test
+function M.describe(name, test_fn)
+    return { name = name, test_fn = test_fn }
+end
+
+function M.it(name, test_fn)
+    return { name = name, test_fn = test_fn }
+end
+
 ---@class TddCycleConfig
 ---@field description string Description of what's being tested
 ---@field category? string Real data category to use ("tiny", "small", "medium", "large", "huge")

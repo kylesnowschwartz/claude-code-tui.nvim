@@ -19,6 +19,7 @@ local text_utils = require("cc-tui.utils.text")
 ---@field views table<string, any> Tab content views by ID
 ---@field keymaps table<string, function> Global keymap handlers
 ---@field on_close_callback function? Optional callback when manager is closed
+---@field current_conversation_path string? Path to currently selected conversation
 local TabbedManager = {}
 TabbedManager.__index = TabbedManager
 
@@ -144,6 +145,7 @@ function TabbedManager.new(opts)
     self.current_tab = opts.default_tab or "current"
     self.views = {}
     self.on_close_callback = opts.on_close
+    self.current_conversation_path = nil
 
     -- Parse size values like MCPHub
     local function parse_size(value, total)
@@ -411,6 +413,29 @@ function TabbedManager:refresh_current_tab()
 
     self:render()
     log.debug("TabbedManager", string.format("Refreshed tab: %s", self.current_tab))
+end
+
+---Set the current conversation for cross-tab context
+---@param conversation_path string Path to conversation file
+function TabbedManager:set_current_conversation(conversation_path)
+    vim.validate({
+        conversation_path = { conversation_path, "string" },
+    })
+
+    self.current_conversation_path = conversation_path
+    log.debug("TabbedManager", string.format("Set current conversation: %s", conversation_path))
+
+    -- If Current tab is loaded, update it with the new conversation
+    local current_view = self.views.current
+    if current_view and type(current_view.load_specific_conversation) == "function" then
+        current_view:load_specific_conversation(conversation_path)
+    end
+end
+
+---Get the current conversation path
+---@return string? conversation_path Current conversation path or nil
+function TabbedManager:get_current_conversation()
+    return self.current_conversation_path
 end
 
 ---Get window width for layout calculations

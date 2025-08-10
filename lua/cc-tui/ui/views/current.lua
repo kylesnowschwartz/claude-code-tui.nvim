@@ -16,6 +16,7 @@ local DataLoader = require("cc-tui.core.data_loader")
 ---@field tree_data CcTui.BaseNode? Current conversation tree
 ---@field selected_index number Currently selected tree node index
 ---@field expanded_nodes table<string, boolean> Track which nodes are expanded
+---@field conversation_path string? Path to currently loaded conversation file
 local CurrentView = setmetatable({}, { __index = BaseView })
 CurrentView.__index = CurrentView
 
@@ -30,6 +31,7 @@ function CurrentView.new(manager)
     self.tree_data = nil
     self.selected_index = 1
     self.expanded_nodes = {}
+    self.conversation_path = nil
 
     -- Load initial conversation data
     self:load_conversation_data()
@@ -63,6 +65,43 @@ function CurrentView:load_conversation_data()
     end
 
     log.debug("CurrentView", string.format("Loaded conversation with %d messages", #self.messages))
+end
+
+---Load specific conversation by file path
+---@param conversation_path string Path to conversation JSONL file
+function CurrentView:load_specific_conversation(conversation_path)
+    vim.validate({
+        conversation_path = { conversation_path, "string" },
+    })
+
+    self.conversation_path = conversation_path
+
+    -- Use DataLoader to load the specific conversation
+    DataLoader.load_conversation(conversation_path, function(messages, root, session_info, path)
+        self.messages = messages or {}
+        self.tree_data = root
+        self.conversation_path = path
+
+        -- Reset expansion state and selection
+        self.expanded_nodes = {}
+        self.selected_index = 1
+
+        -- Set initial expanded state for root nodes
+        if self.tree_data and self.tree_data.children then
+            for _, child in ipairs(self.tree_data.children) do
+                self.expanded_nodes[child.id or tostring(child)] = true
+            end
+        end
+
+        log.debug("CurrentView", string.format("Loaded specific conversation: %s (%d messages)", path, #self.messages))
+
+        -- Trigger re-render through manager
+        if self.manager then
+            vim.schedule(function()
+                self.manager:render()
+            end)
+        end
+    end)
 end
 
 ---Flatten tree for display with indentation and expansion state

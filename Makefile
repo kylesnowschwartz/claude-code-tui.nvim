@@ -11,8 +11,17 @@ style-check:
 	stylua --check . -g '*.lua' -g '!deps/' -g '!nightly/'
 	luacheck plugin/ lua/
 
+# validates test structure before running (fail fast)
+test-validate:
+	@echo "🔍 Validating test structure..."
+	@nvim --headless --noplugin -u ./scripts/minimal_init.lua \
+		-c "lua require('mini.test').setup()" \
+		-c "lua if not dofile('scripts/validate_tests.lua') then vim.cmd('cquit 1') end" \
+		-c "quit"
+
 # runs all the test files.
 test:
+	make test-validate
 	make deps
 	nvim --version | head -n 1 && echo ''
 	nvim --headless --noplugin -u ./scripts/minimal_init.lua \

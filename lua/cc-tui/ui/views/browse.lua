@@ -316,12 +316,12 @@ function BrowseView:select_current()
     if conv then
         log.debug("BrowseView", string.format("Selected conversation: %s", conv.path))
 
-        -- Load the selected conversation into current view
-        -- This would typically integrate with the main system to load the conversation
-        vim.notify(string.format("Loading conversation: %s", conv.title or "Untitled"), vim.log.levels.INFO)
-
-        -- Switch to current tab to show loaded conversation
+        -- Set the conversation in the tabbed manager
         if self.manager then
+            self.manager:set_current_conversation(conv.path)
+            vim.notify(string.format("Loading conversation: %s", conv.title or "Untitled"), vim.log.levels.INFO)
+
+            -- Switch to current tab to show loaded conversation
             self.manager:switch_to_tab("current")
         end
     end
