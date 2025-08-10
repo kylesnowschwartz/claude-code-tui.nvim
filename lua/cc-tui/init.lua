@@ -3,7 +3,7 @@ local main = require("cc-tui.main")
 
 local CcTui = {}
 
---- Toggle the plugin by calling the `enable`/`disable` methods respectively.
+--- Toggle the tabbed interface (opens unified CC-TUI with C/B/L/? tabs)
 function CcTui.toggle()
     if _G.CcTui.config == nil then
         _G.CcTui.config = config.options
@@ -12,21 +12,23 @@ function CcTui.toggle()
     main.toggle("public_api_toggle")
 end
 
---- Initializes the plugin, sets event listeners and internal state.
-function CcTui.enable(scope)
+--- Enable the tabbed interface with optional default tab
+---@param default_tab? string Default tab to open ("current", "browse", "logs", "help")
+function CcTui.enable(default_tab)
     if _G.CcTui.config == nil then
         _G.CcTui.config = config.options
     end
 
-    main.toggle(scope or "public_api_enable")
+    main.enable("public_api_enable", default_tab)
 end
 
---- Disables the plugin, clear highlight groups and autocmds, closes side buffers and resets the internal state.
+--- Disable the tabbed interface and clean up resources
 function CcTui.disable()
-    main.toggle("public_api_disable")
+    main.disable("public_api_disable")
 end
 
 --- Browse Claude conversations in the current project
+---@deprecated Use CcTui.enable("browse") or simply :CcTui then press 'B' - this maintains backward compatibility
 function CcTui.browse()
     if _G.CcTui.config == nil then
         _G.CcTui.config = config.options

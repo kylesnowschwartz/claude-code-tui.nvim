@@ -1,27 +1,23 @@
 ---@brief [[
---- Main module for CC-TUI (REFACTORED)
---- Coordinates specialized modules for better separation of concerns
+--- Main module for CC-TUI (TABBED INTERFACE)
+--- Coordinates tabbed interface following MCPHub UX patterns
 ---
---- ARCHITECTURE CHANGE: This 527-line monolith has been decomposed into:
---- - plugin_lifecycle.lua (85 lines) - Plugin state management
---- - data_loader.lua (120 lines) - Data loading and parsing
---- - ui_manager.lua (210 lines) - UI component management
---- - stream_manager.lua (140 lines) - Streaming provider management
---- - main_refactored.lua (85 lines) - Coordination and public API
+--- ARCHITECTURE CHANGE: Unified tabbed interface replacing separate commands
+--- - TabbedManager handles unified UI with C/B/L/? tabs
+--- - Current tab shows conversation tree (replaces :CcTui)
+--- - Browse tab shows conversation browser (replaces :CcTuiBrowse)
+--- - Logs tab shows debug/activity logs
+--- - Help tab shows keybindings and usage instructions
 ---
---- Total: 640 lines across 5 focused modules (better maintainability despite 21% increase)
---- Benefits: Single Responsibility Principle, better testability, clearer boundaries
+--- Benefits: Unified UX, consistent navigation, better discoverability
 ---@brief ]]
 
-local ConversationBrowser = require("cc-tui.ui.conversation_browser")
 local DataLoader = require("cc-tui.core.data_loader")
 local Parser = require("cc-tui.parser.stream")
-local PluginLifecycle = require("cc-tui.core.plugin_lifecycle")
 local StreamManager = require("cc-tui.core.stream_manager")
+local TabbedManager = require("cc-tui.ui.tabbed_manager")
 local TreeBuilder = require("cc-tui.models.tree_builder")
-local UIManager = require("cc-tui.core.ui_manager")
 local log = require("cc-tui.utils.log")
-local state = require("cc-tui.state")
 
 ---@class CcTui.Main
 local M = {}
@@ -29,50 +25,72 @@ local M = {}
 ---@class CcTui.MainState
 ---@field messages CcTui.Message[] Parsed messages
 ---@field tree_data CcTui.BaseNode? Tree data structure
+---@field tabbed_manager CcTui.UI.TabbedManager? Active tabbed manager instance
 
----Internal state (reduced to core data only)
+---Internal state for tabbed interface
 ---@type CcTui.MainState
 local main_state = {
     messages = {},
     tree_data = nil,
+    tabbed_manager = nil,
 }
 
 ---Toggle the plugin by calling the `enable`/`disable` methods respectively.
 ---@param scope string Internal identifier for logging purposes
+---@param default_tab? string Default tab to open (default: "current")
 ---@private
-function M.toggle(scope)
+function M.toggle(scope, default_tab)
     vim.validate({
         scope = { scope, "string" },
+        default_tab = { default_tab, "string", true },
     })
 
-    local callback = function(messages, root)
-        main_state.messages = messages
-        main_state.tree_data = root
+    if main_state.tabbed_manager and main_state.tabbed_manager:is_active() then
+        M.disable(scope)
+    else
+        M.enable(scope, default_tab)
     end
-
-    PluginLifecycle.toggle(scope, UIManager, DataLoader, StreamManager, callback)
 end
 
----Initialize the plugin, sets event listeners and internal state
+---Initialize the plugin, creates tabbed interface
 ---@param scope string Internal identifier for logging purposes
+---@param default_tab? string Default tab to open (default: "current")
 ---@private
-function M.enable(scope)
+function M.enable(scope, default_tab)
     vim.validate({
         scope = { scope, "string" },
+        default_tab = { default_tab, "string", true },
     })
 
-    local callback = function(messages, root)
-        main_state.messages = messages
-        main_state.tree_data = root
+    default_tab = default_tab or "current"
+
+    -- Create tabbed manager
+    local manager, err = TabbedManager.new({
+        width = "90%",
+        height = "80%",
+        default_tab = default_tab,
+        on_close = function()
+            main_state.tabbed_manager = nil
+            log.debug("main", "Tabbed manager closed")
+        end,
+    })
+
+    if not manager then
+        log.debug("main", "Failed to create tabbed manager: " .. (err or "unknown error"))
+        vim.notify("CC-TUI: Failed to open interface", vim.log.levels.ERROR)
+        return false
     end
 
-    local success = PluginLifecycle.initialize(scope, UIManager, DataLoader, callback)
-    if success then
-        log.debug("main", "CC-TUI enabled successfully")
-    end
+    main_state.tabbed_manager = manager
+
+    -- Show the tabbed interface
+    manager:show()
+
+    log.debug("main", string.format("CC-TUI enabled with tabbed interface, default tab: %s", default_tab))
+    return true
 end
 
----Disable the plugin, clear highlight groups and autocmds, closes windows and resets state
+---Disable the plugin, closes tabbed interface and resets state
 ---@param scope string Internal identifier for logging purposes
 ---@private
 function M.disable(scope)
@@ -80,7 +98,14 @@ function M.disable(scope)
         scope = { scope, "string" },
     })
 
-    PluginLifecycle.cleanup(scope, UIManager, StreamManager)
+    -- Close tabbed manager
+    if main_state.tabbed_manager then
+        main_state.tabbed_manager:close()
+        main_state.tabbed_manager = nil
+    end
+
+    -- Stop any active streaming
+    StreamManager.stop_streaming()
 
     -- Clear local state
     main_state.messages = {}
@@ -89,28 +114,17 @@ function M.disable(scope)
     log.debug("main", "CC-TUI disabled successfully")
 end
 
----Refresh current display (rebuilds tree and re-renders)
+---Refresh current display (refreshes active tab content)
 ---@return nil
 function M.refresh()
-    if not PluginLifecycle.is_enabled() then
+    if not main_state.tabbed_manager or not main_state.tabbed_manager:is_active() then
         return
     end
 
-    -- Reload data from source
-    local root, err, messages = DataLoader.load_test_data()
-    if not root then
-        log.debug("main", "Failed to reload test data during refresh: " .. (err or "unknown error"))
-        -- Fall back to refreshing existing UI
-        UIManager.refresh()
-        return
-    end
+    -- Refresh the current tab
+    main_state.tabbed_manager:refresh_current_tab()
 
-    -- Update state with reloaded data
-    main_state.messages = messages or {}
-    main_state.tree_data = root
-
-    -- Update UI with reloaded data
-    UIManager.update(root, messages or {})
+    log.debug("main", "Refreshed tabbed interface")
 end
 
 ---Process a new JSONL line (for streaming support)
@@ -121,8 +135,8 @@ function M.process_line(line)
         line = { line, "string" },
     })
 
-    if not PluginLifecycle.is_enabled() then
-        log.debug("main", "Cannot process line: plugin disabled")
+    if not main_state.tabbed_manager or not main_state.tabbed_manager:is_active() then
+        log.debug("main", "Cannot process line: tabbed interface not active")
         return
     end
 
@@ -141,8 +155,10 @@ function M.process_line(line)
     local root = TreeBuilder.build_tree(main_state.messages, session_info)
     main_state.tree_data = root
 
-    -- Update UI with new tree
-    UIManager.update(root, main_state.messages)
+    -- Update tabbed interface with new tree
+    if main_state.tabbed_manager then
+        main_state.tabbed_manager:refresh_current_tab()
+    end
 end
 
 ---Start streaming from Claude CLI
@@ -177,66 +193,58 @@ function M.stop_streaming()
     StreamManager.stop_streaming()
 end
 
----Browse Claude conversations in the current project
+---Browse Claude conversations in the current project (opens tabbed interface to Browse tab)
+---@deprecated Use M.toggle("browse", "browse") instead - this maintains backward compatibility
 ---@return nil
 function M.browse()
-    log.debug("main", "Opening conversation browser")
+    log.debug("main", "Opening tabbed interface to Browse tab (legacy browse command)")
 
-    -- Create browser with callback to load selected conversation
-    local browser, err = ConversationBrowser.new({
-        on_select = function(conversation_path)
-            log.debug("main", string.format("Selected conversation: %s", conversation_path))
-            M.load_conversation(conversation_path)
-        end,
-        height = "80%",
-        width = "90%",
-    })
-
-    if not browser then
-        log.debug("main", "Failed to create conversation browser: " .. (err or "unknown error"))
-        vim.notify("CC-TUI: Failed to open conversation browser", vim.log.levels.ERROR)
-        return
+    -- Open tabbed interface defaulting to browse tab
+    if main_state.tabbed_manager and main_state.tabbed_manager:is_active() then
+        -- Switch to browse tab if already open
+        main_state.tabbed_manager:switch_to_tab("browse")
+    else
+        -- Enable with browse tab as default
+        M.enable("legacy_browse", "browse")
     end
-
-    -- Show the browser
-    browser:show()
 end
 
 ---Load conversation from JSONL file
 ---@param conversation_path string Path to conversation JSONL file
 ---@return nil
 function M.load_conversation(conversation_path)
-    DataLoader.load_conversation(conversation_path, function(messages, root, session_info, path)
+    DataLoader.load_conversation(conversation_path, function(messages, root, _, path)
         -- Store messages and tree data
         main_state.messages = messages
         main_state.tree_data = root
 
-        -- Update UI or enable plugin with new data
-        if UIManager.is_active() then
-            UIManager.update(root, messages, path)
+        -- Update tabbed interface or enable plugin with new data
+        if main_state.tabbed_manager and main_state.tabbed_manager:is_active() then
+            -- Switch to current tab to show the loaded conversation
+            main_state.tabbed_manager:switch_to_tab("current")
+            main_state.tabbed_manager:refresh_current_tab()
         else
-            -- Enable plugin with new data
-            local success = PluginLifecycle.initialize("conversation_load", UIManager, DataLoader)
-            if success then
-                UIManager.update(root, messages, path)
-            end
+            -- Enable tabbed interface with current tab to show the loaded conversation
+            M.enable("conversation_load", "current")
         end
+
+        log.debug("main", string.format("Loaded conversation from %s", path or "unknown"))
     end)
 end
 
----Get current state for debugging (backward compatibility)
----@return table state Legacy state structure for existing tests
+---Get current state for debugging (backward compatibility with tabbed interface)
+---@return table state State structure for debugging and tests
 function M.get_state()
-    local ui_state = UIManager.get_state()
     local stream_state = StreamManager.get_state()
 
-    -- Return legacy structure for backward compatibility with tests
+    -- Return state structure adapted for tabbed interface
     return {
-        popup = ui_state.popup,
-        tree = ui_state.tree,
+        tabbed_manager = main_state.tabbed_manager,
         tree_data = main_state.tree_data,
         messages = main_state.messages,
         streaming_provider = stream_state.streaming_provider,
+        is_active = main_state.tabbed_manager and main_state.tabbed_manager:is_active() or false,
+        current_tab = main_state.tabbed_manager and main_state.tabbed_manager.current_tab or nil,
     }
 end
 

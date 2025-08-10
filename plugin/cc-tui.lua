@@ -14,11 +14,16 @@ if vim.fn.has("nvim-0.7") == 0 then
 else
     vim.api.nvim_create_user_command("CcTui", function()
         require("cc-tui").toggle()
-    end, {})
+    end, { desc = "Open CC-TUI tabbed interface (C/B/L/? tabs)" })
 
     vim.api.nvim_create_user_command("CcTuiBrowse", function()
+        -- Show deprecation notice
+        vim.notify(
+            "CcTuiBrowse is deprecated. Use :CcTui then press 'B' or use :CcTui with browse tab.",
+            vim.log.levels.WARN
+        )
         require("cc-tui").browse()
-    end, { desc = "Browse Claude conversations in current project" })
+    end, { desc = "[DEPRECATED] Browse Claude conversations - use :CcTui then press 'B'" })
 
     vim.api.nvim_create_user_command("CcTuiReload", function()
         -- Preserve current config
