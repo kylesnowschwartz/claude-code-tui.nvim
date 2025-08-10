@@ -19,12 +19,16 @@ end
 
 ---@class CcTui.StaticProvider : CcTui.DataProvider
 ---@field limit number Maximum number of lines to load
+---@field lines string[]? Pre-loaded lines (if provided, skips TestData loading)
+---@field uuid string? Conversation UUID (for real data identification)
 local M = setmetatable({}, { __index = DataProvider })
 
 ---Default configuration for StaticProvider
 ---@type table
 local default_config = {
     limit = 500, -- Maximum lines to load from test data
+    lines = nil, -- Optional pre-loaded lines
+    uuid = nil,  -- Optional conversation UUID
 }
 
 ---Create a new static data provider instance
@@ -42,10 +46,18 @@ function M:new(config)
 
     -- Add StaticProvider-specific properties
     provider.limit = config.limit
+    provider.lines = config.lines
+    provider.uuid = config.uuid
 
     setmetatable(provider, { __index = self })
 
-    log.debug("provider.static", string.format("Created static provider with limit: %d", provider.limit))
+    if provider.lines then
+        log.debug("provider.static", string.format("Created static provider with %d pre-loaded lines (UUID: %s)", 
+            #provider.lines, provider.uuid or "unknown"))
+    else
+        log.debug("provider.static", string.format("Created static provider with limit: %d", provider.limit))
+    end
+    
     return provider
 end
 
@@ -57,16 +69,23 @@ function M:start()
     -- Trigger start callback
     self:_trigger_callback("on_start")
 
-    -- Load test data
-    local lines = TestData.load_sample_lines(self.limit)
-
-    if #lines == 0 then
-        log.debug("provider.static", "No test data loaded")
-        self:_trigger_callback("on_error", "Failed to load test data")
-        return
+    local lines
+    
+    if self.lines then
+        -- Use pre-loaded lines (real data)
+        lines = self.lines
+        log.debug("provider.static", string.format("Using %d pre-loaded lines", #lines))
+    else
+        -- Load test data from TestData module
+        lines = TestData.load_sample_lines(self.limit)
+        log.debug("provider.static", string.format("Loaded %d lines of test data", #lines))
     end
 
-    log.debug("provider.static", string.format("Loaded %d lines of test data", #lines))
+    if #lines == 0 then
+        log.debug("provider.static", "No data available")
+        self:_trigger_callback("on_error", "No data to provide")
+        return
+    end
 
     -- Trigger data callbacks for each line
     for _, line in ipairs(lines) do

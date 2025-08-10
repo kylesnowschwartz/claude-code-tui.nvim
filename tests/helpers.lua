@@ -48,6 +48,12 @@ Helpers.expect.match = MiniTest.new_expectation("string matching", function(str,
     return str:find(pattern) ~= nil
 end, error_message)
 
+Helpers.expect.truthy = MiniTest.new_expectation("value is truthy", function(value, message)
+    return value and true or false
+end, function(value, message)
+    return string.format("Expected truthy value but got: %s\nMessage: %s", vim.inspect(value), message or "")
+end)
+
 Helpers.expect.no_match = MiniTest.new_expectation("no string matching", function(str, pattern)
     return str:find(pattern) == nil
 end, error_message)
