@@ -56,7 +56,7 @@ end
 ---@param ... any: the arguments of the formatted string.
 ---@private
 function log.notify(scope, level, verbose, str, ...)
-    if not verbose and _G.CcTui.config ~= nil and not _G.CcTui.config.debug then
+    if not verbose and _G.CcTui and _G.CcTui.config ~= nil and not _G.CcTui.config.debug then
         return
     end
 

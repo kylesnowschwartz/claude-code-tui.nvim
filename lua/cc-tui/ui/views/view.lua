@@ -5,7 +5,6 @@
 
 local BaseView = require("cc-tui.ui.views.base")
 -- local NuiLine = require("nui.line")
-local Config = require("cc-tui.config")
 local Tree = require("cc-tui.ui.tree")
 local log = require("cc-tui.utils.log")
 

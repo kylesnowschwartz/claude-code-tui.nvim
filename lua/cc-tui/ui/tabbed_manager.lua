@@ -217,7 +217,7 @@ function TabbedManager.new(opts)
     -- Initialize views (lazy loading)
     self:init_views()
 
-    log.debug("TabbedManager", string.format("Created tabbed manager with %d tabs", #self.tabs))
+    log.debug_safe("TabbedManager", string.format("Created tabbed manager with %d tabs", #self.tabs))
 
     return self, nil
 end
@@ -259,7 +259,7 @@ end
 function TabbedManager:init_views(_)
     -- Views will be loaded on demand in switch_to_tab()
     -- This prevents loading all views upfront and improves startup time
-    log.debug("TabbedManager", "View initialization set up for lazy loading")
+    log.debug_safe("TabbedManager", "View initialization set up for lazy loading")
 end
 
 ---Load view for specific tab (lazy loading implementation)
@@ -279,7 +279,7 @@ function TabbedManager:load_view(tab_id)
     end
 
     if not view_name then
-        log.debug("TabbedManager", string.format("No view mapping found for tab: %s", tab_id))
+        log.debug_safe("TabbedManager", string.format("No view mapping found for tab: %s", tab_id))
         return nil
     end
 
@@ -288,7 +288,7 @@ function TabbedManager:load_view(tab_id)
     local success, view_module = pcall(require, view_module_path)
 
     if not success then
-        log.debug("TabbedManager", string.format("Failed to load view module: %s", view_module_path))
+        log.debug_safe("TabbedManager", string.format("Failed to load view module: %s", view_module_path))
         return nil
     end
 
@@ -303,7 +303,7 @@ function TabbedManager:load_view(tab_id)
     end
 
     self.views[tab_id] = view_instance
-    log.debug("TabbedManager", string.format("Loaded view for tab: %s", tab_id))
+    log.debug_safe("TabbedManager", string.format("Loaded view for tab: %s", tab_id))
 
     return view_instance
 end
@@ -367,7 +367,7 @@ function TabbedManager:switch_to_tab(tab_id)
     end
 
     if not tab_exists then
-        log.debug("TabbedManager", string.format("Invalid tab ID: %s", tab_id))
+        log.debug_safe("TabbedManager", string.format("Invalid tab ID: %s", tab_id))
         return
     end
 
@@ -389,7 +389,7 @@ function TabbedManager:switch_to_tab(tab_id)
     self:render()
     self:apply_view_keymaps()
 
-    log.debug("TabbedManager", string.format("Switched to tab: %s", tab_id))
+    log.debug_safe("TabbedManager", string.format("Switched to tab: %s", tab_id))
 end
 
 ---Cycle to next tab
@@ -428,7 +428,7 @@ function TabbedManager:refresh_current_tab()
     end
 
     self:render()
-    log.debug("TabbedManager", string.format("Refreshed tab: %s", self.current_tab))
+    log.debug_safe("TabbedManager", string.format("Refreshed tab: %s", self.current_tab))
 end
 
 ---Set the current conversation for cross-tab context (deprecated - use open_conversation_in_view)
@@ -556,7 +556,7 @@ function TabbedManager:show()
     -- Store singleton instance
     TabbedManager.set_instance(self)
 
-    log.debug("TabbedManager", string.format("Showed tabbed manager, active tab: %s", self.current_tab))
+    log.debug_safe("TabbedManager", string.format("Showed tabbed manager, active tab: %s", self.current_tab))
 end
 
 ---Close the tabbed manager
@@ -579,7 +579,7 @@ function TabbedManager:close()
         -- Clear singleton instance
         TabbedManager.set_instance(nil)
 
-        log.debug("TabbedManager", "Closed tabbed manager")
+        log.debug_safe("TabbedManager", "Closed tabbed manager")
     end
 end
 

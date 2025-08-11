@@ -74,9 +74,13 @@ T["open_conversation_method_exists"] = function()
     MiniTest.expect.equality(has_method, true, "Should have open_conversation_in_view method")
 end
 
--- Test 4: View tab should handle empty state
+-- Test 4: View tab should handle empty state when no conversations exist
 T["view_tab_empty_state"] = function()
     child.lua([[
+        -- Set up test config to point to empty directory
+        local Config = require('cc-tui.config')
+        Config.set_projects_directory(nil, vim.fn.tempname()) -- Empty temp directory
+
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
         local manager = TabbedManager.new()
         manager:show()
@@ -93,8 +97,8 @@ T["view_tab_empty_state"] = function()
     local has_empty_message = child.lua_get("_G.has_empty_message")
     local has_no_tree = child.lua_get("_G.has_no_tree")
 
-    MiniTest.expect.equality(has_empty_message, true, "View should have empty message")
-    MiniTest.expect.equality(has_no_tree, true, "View should have no tree data initially")
+    MiniTest.expect.equality(has_empty_message, true, "View should have empty message when no conversations exist")
+    MiniTest.expect.equality(has_no_tree, true, "View should have no tree data when no conversations exist")
 end
 
 -- Test 5: Browse view should track selected conversation
