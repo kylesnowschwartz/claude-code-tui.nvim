@@ -34,6 +34,7 @@ function ViewView.new(manager)
     self.conversation_path = nil
     self.tree_component = nil
     self.tree_rendered = false
+    self.tree_needs_update = false -- PERFORMANCE: Track when tree needs re-rendering
 
     -- Try to load a default conversation (security handled at path mapping level)
     self:load_default_conversation()
@@ -83,6 +84,7 @@ function ViewView:load_conversation(conversation_path)
         self.messages = messages or {}
         self.tree_data = root
         self.conversation_path = path
+        self.tree_needs_update = true -- PERFORMANCE: Mark tree as needing update
 
         log.debug("ViewView", string.format("Loaded conversation with %d messages", #self.messages))
 
@@ -117,29 +119,43 @@ function ViewView:render_tree()
         return
     end
 
-    -- Create or update tree component using helper methods
+    -- PERFORMANCE: Only update tree component when needed
     local tree_config = self:get_tree_config()
 
-    if self.tree_component then
-        -- Update existing tree
+    if self.tree_component and not self.tree_needs_update then
+        -- Tree already exists and doesn't need update, just render
+        log.debug("ViewView", "Using cached tree component")
+    elseif self.tree_component then
+        -- Update existing tree with new data
         Tree.update_tree(self.tree_component, self.tree_data, tree_config)
+        self.tree_needs_update = false
+        log.debug("ViewView", "Updated existing tree component")
     else
         -- Create new tree using the popup's buffer
         self.tree_component = Tree.create_tree(self.tree_data, tree_config, bufnr)
+        self.tree_needs_update = false
         -- Setup tree keybindings using helper
         self:setup_tree_keybindings(bufnr)
+        log.debug("ViewView", "Created new tree component")
     end
 
-    -- Make buffer modifiable temporarily for tree rendering
-    vim.api.nvim_buf_set_option(bufnr, "modifiable", true)
-    vim.api.nvim_buf_set_option(bufnr, "readonly", false)
+    -- PERFORMANCE: Check if buffer is already modifiable to avoid unnecessary calls
+    local is_modifiable = vim.api.nvim_buf_get_option(bufnr, "modifiable")
+    local was_readonly = vim.api.nvim_buf_get_option(bufnr, "readonly")
+
+    if not is_modifiable or was_readonly then
+        vim.api.nvim_buf_set_option(bufnr, "modifiable", true)
+        vim.api.nvim_buf_set_option(bufnr, "readonly", false)
+    end
 
     -- Render the tree
     self.tree_component:render()
 
-    -- Set buffer back to readonly
-    vim.api.nvim_buf_set_option(bufnr, "modifiable", false)
-    vim.api.nvim_buf_set_option(bufnr, "readonly", true)
+    -- PERFORMANCE: Only restore buffer options if we changed them
+    if not is_modifiable or was_readonly then
+        vim.api.nvim_buf_set_option(bufnr, "modifiable", false)
+        vim.api.nvim_buf_set_option(bufnr, "readonly", true)
+    end
 
     self.tree_rendered = true
     log.debug("ViewView", "Tree rendered in buffer")
@@ -182,6 +198,31 @@ function ViewView:setup_tree_keybindings(bufnr)
             help = "?",
         },
     })
+
+    -- PERFORMANCE: Add intuitive h/l expand/collapse keybindings from original system
+    vim.keymap.set("n", "h", function()
+        local node = self.tree_component:get_node()
+        if node and node:has_children() and node:is_expanded() then
+            node:collapse()
+            self.tree_component:render()
+        end
+    end, {
+        buffer = bufnr,
+        desc = "Collapse current node",
+        nowait = true,
+    })
+
+    vim.keymap.set("n", "l", function()
+        local node = self.tree_component:get_node()
+        if node and node:has_children() and not node:is_expanded() then
+            node:expand()
+            self.tree_component:render()
+        end
+    end, {
+        buffer = bufnr,
+        desc = "Expand current node",
+        nowait = true,
+    })
 end
 
 ---Clear tree from buffer
@@ -223,23 +264,29 @@ function ViewView:on_activate()
         return
     end
 
-    -- Make buffer modifiable for rendering
-    vim.api.nvim_buf_set_option(bufnr, "modifiable", true)
-    vim.api.nvim_buf_set_option(bufnr, "readonly", false)
+    -- PERFORMANCE: Only enable modifiable once per activation
+    local was_modifiable = vim.api.nvim_buf_get_option(bufnr, "modifiable")
+    local was_readonly = vim.api.nvim_buf_get_option(bufnr, "readonly")
+
+    if not was_modifiable or was_readonly then
+        vim.api.nvim_buf_set_option(bufnr, "modifiable", true)
+        vim.api.nvim_buf_set_option(bufnr, "readonly", false)
+    end
 
     if self.tree_data then
-        -- Clear buffer and render tree (render_tree will handle buffer setup)
+        -- Clear buffer and render tree
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
 
-        -- Call render_tree without buffer option changes since we're already in activate
+        -- PERFORMANCE: Use render_tree() which has optimized buffer handling
         if self.tree_component then
             Tree.update_tree(self.tree_component, self.tree_data, self:get_tree_config())
+            self.tree_component:render()
         else
             self.tree_component = Tree.create_tree(self.tree_data, self:get_tree_config(), bufnr)
             self:setup_tree_keybindings(bufnr)
+            self.tree_component:render()
         end
 
-        self.tree_component:render()
         self.tree_rendered = true
         log.debug("ViewView", "Tree rendered in activate")
     else
@@ -263,9 +310,11 @@ function ViewView:on_activate()
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
     end
 
-    -- Set buffer back to readonly
-    vim.api.nvim_buf_set_option(bufnr, "modifiable", false)
-    vim.api.nvim_buf_set_option(bufnr, "readonly", true)
+    -- PERFORMANCE: Only restore buffer options if we changed them
+    if not was_modifiable or was_readonly then
+        vim.api.nvim_buf_set_option(bufnr, "modifiable", false)
+        vim.api.nvim_buf_set_option(bufnr, "readonly", true)
+    end
 end
 
 ---Called when this tab becomes inactive
