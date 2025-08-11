@@ -22,6 +22,10 @@ local log = require("cc-tui.utils.log")
 ---@class CcTui.Main
 local M = {}
 
+-- Default tab to open when no tab is specified
+-- Set to "browse" for browse-first UI flow
+local DEFAULT_TAB = "browse"
+
 ---@class CcTui.MainState
 ---@field messages CcTui.Message[] Parsed messages
 ---@field tree_data CcTui.BaseNode? Tree data structure
@@ -37,7 +41,7 @@ local main_state = {
 
 ---Toggle the plugin by calling the `enable`/`disable` methods respectively.
 ---@param scope string Internal identifier for logging purposes
----@param default_tab? string Default tab to open (default: "current")
+---@param default_tab? string Default tab to open (default: "browse")
 ---@private
 function M.toggle(scope, default_tab)
     vim.validate({
@@ -54,7 +58,7 @@ end
 
 ---Initialize the plugin, creates tabbed interface
 ---@param scope string Internal identifier for logging purposes
----@param default_tab? string Default tab to open (default: "current")
+---@param default_tab? string Default tab to open (default: "browse")
 ---@private
 function M.enable(scope, default_tab)
     vim.validate({
@@ -62,7 +66,7 @@ function M.enable(scope, default_tab)
         default_tab = { default_tab, "string", true },
     })
 
-    default_tab = default_tab or "current"
+    default_tab = default_tab or DEFAULT_TAB
 
     -- Create tabbed manager
     local manager, err = TabbedManager.new({
