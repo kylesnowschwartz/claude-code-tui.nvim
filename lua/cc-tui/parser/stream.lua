@@ -6,6 +6,9 @@
 ---@class CcTui.Parser.Stream
 local M = {}
 
+-- Import Message model classes
+local Message = require("cc-tui.models.message")
+
 ---@class CcTui.Message
 ---@field type "system"|"assistant"|"user"|"result"
 ---@field subtype? string
@@ -286,6 +289,250 @@ function M.get_result_info(messages)
                 num_turns = msg.num_turns,
             }
         end
+    end
+
+    return nil
+end
+
+-- New methods using Message model
+
+---Parse a single JSONL line into a Message object
+---@param line string JSON line to parse
+---@return CcTui.Models.Message? message Parsed message or nil if invalid
+---@return string? error Error message if parsing failed
+function M.parse_line_with_model(line)
+    vim.validate({
+        line = { line, "string" },
+    })
+
+    -- Skip empty lines
+    if line == "" then
+        return nil, nil
+    end
+
+    local ok, data = pcall(vim.json.decode, line)
+    if not ok then
+        return nil, "Failed to parse JSON: " .. tostring(data)
+    end
+
+    -- Validate required fields
+    if not data.type then
+        return nil, "Missing required field: type"
+    end
+
+    -- Use Message factory to create appropriate type
+    return Message.from_json(data), nil
+end
+
+---Build message index for linking tool uses with results using Message model
+---@param messages CcTui.Models.Message[] List of Message objects
+---@return table<string, CcTui.Models.Message> tool_uses Map of tool_use_id to message
+---@return table<string, CcTui.Models.Message> tool_results Map of tool_use_id to result message
+function M.build_message_index_with_model(messages)
+    vim.validate({
+        messages = { messages, "table" },
+    })
+
+    local tool_uses = {}
+    local tool_results = {}
+
+    for _, msg in ipairs(messages) do
+        if msg:is_assistant() then
+            -- Use AssistantMessage methods
+            local tools = msg:get_tool_uses()
+            for _, tool in ipairs(tools) do
+                if tool.id then
+                    tool_uses[tool.id] = msg
+                end
+            end
+        elseif msg:is_user() then
+            -- Use UserMessage methods
+            local results = msg:get_tool_results()
+            for _, result in ipairs(results) do
+                if result.tool_use_id then
+                    tool_results[result.tool_use_id] = msg
+                end
+            end
+        end
+    end
+
+    return tool_uses, tool_results
+end
+
+---Parse multiple JSONL lines into a list of Message objects
+---@param lines string[] Array of JSONL lines
+---@return CcTui.Models.Message[] messages List of parsed Message objects
+---@return string[] errors List of parsing errors
+function M.parse_lines_with_model(lines)
+    vim.validate({
+        lines = { lines, "table" },
+    })
+
+    local raw_messages = {}
+    local errors = {}
+
+    -- First pass: parse all lines into Message objects
+    for i, line in ipairs(lines) do
+        local msg, err = M.parse_line_with_model(line)
+        if msg then
+            table.insert(raw_messages, msg)
+        elseif err then
+            table.insert(errors, string.format("Line %d: %s", i, err))
+        end
+    end
+
+    -- Second pass: consolidate messages with same ID
+    local consolidated = M.consolidate_messages_with_model(raw_messages)
+
+    return consolidated, errors
+end
+
+---Consolidate Message objects that share the same message ID
+---@param raw_messages CcTui.Models.Message[] Raw Message objects
+---@return CcTui.Models.Message[] consolidated Consolidated Message objects
+function M.consolidate_messages_with_model(raw_messages)
+    vim.validate({
+        raw_messages = { raw_messages, "table" },
+    })
+
+    local message_map = {}
+    local consolidated = {}
+
+    for _, msg in ipairs(raw_messages) do
+        if msg:is_assistant() then
+            local msg_id = msg:get_message_id()
+
+            if msg_id and message_map[msg_id] then
+                -- Merge content into existing message
+                local existing = message_map[msg_id]
+                local new_tools = msg:get_tool_uses()
+                local new_text = msg:get_text_content()
+
+                -- Merge tool uses
+                if #new_tools > 0 then
+                    local existing_data = existing.data
+                    if existing_data.message and existing_data.message.content then
+                        for _, tool in ipairs(new_tools) do
+                            table.insert(existing_data.message.content, {
+                                type = "tool_use",
+                                id = tool.id,
+                                name = tool.name,
+                                input = tool.input,
+                            })
+                        end
+                    end
+                end
+
+                -- Merge text content
+                if new_text and existing.data.message and existing.data.message.content then
+                    table.insert(existing.data.message.content, {
+                        type = "text",
+                        text = new_text,
+                    })
+                end
+            elseif msg_id then
+                -- First occurrence of this message ID
+                message_map[msg_id] = msg
+                table.insert(consolidated, msg)
+            else
+                -- No ID, pass through unchanged
+                table.insert(consolidated, msg)
+            end
+        else
+            -- Non-assistant messages pass through unchanged
+            table.insert(consolidated, msg)
+        end
+    end
+
+    return consolidated
+end
+
+---Extract text preview from Message object
+---@param message CcTui.Models.Message Message object
+---@return string? preview Text preview or nil
+function M.get_text_preview_with_model(message)
+    vim.validate({
+        message = { message, "table" },
+    })
+
+    local text = nil
+
+    if message:is_assistant() then
+        text = message:get_text_content()
+    elseif message:is_user() then
+        text = message:get_text_content()
+    end
+
+    if text then
+        -- Return first 80 characters or until newline
+        local newline_pos = text:find("\n")
+        if newline_pos then
+            text = text:sub(1, newline_pos - 1)
+        end
+        if #text > 80 then
+            text = text:sub(1, 77) .. "..."
+        end
+        return text
+    end
+
+    return nil
+end
+
+---Extract tool information from Message object
+---@param message CcTui.Models.Message Message object
+---@return table[] tools List of tool information {id, name, input}
+function M.get_tools_with_model(message)
+    vim.validate({
+        message = { message, "table" },
+    })
+
+    if message:is_assistant() then
+        return message:get_tool_uses()
+    end
+
+    return {}
+end
+
+---Get session information from Message objects
+---@param messages CcTui.Models.Message[] List of Message objects
+---@return table? session_info Session information {id, summary, cwd, gitBranch, version}
+function M.get_session_info_with_model(messages)
+    vim.validate({
+        messages = { messages, "table" },
+    })
+
+    local session_info = {}
+    local found_session = false
+
+    -- Look for summary messages for a better title
+    for _, msg in ipairs(messages) do
+        if msg:is_summary() then
+            session_info.summary = msg:get_summary()
+            break
+        end
+    end
+
+    -- Extract sessionId from any message that has it
+    for _, msg in ipairs(messages) do
+        local session_id = msg:get_session_id()
+        if session_id then
+            session_info.id = session_id
+            session_info.cwd = msg:get_cwd()
+            session_info.gitBranch = msg:get_git_branch()
+            session_info.version = msg:get_version()
+
+            -- For assistant messages, also get model
+            if msg:is_assistant() then
+                session_info.model = msg:get_model()
+            end
+
+            found_session = true
+            break
+        end
+    end
+
+    if found_session then
+        return session_info
     end
 
     return nil

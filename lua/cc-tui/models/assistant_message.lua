@@ -133,7 +133,7 @@ end
 ---Check if this is an MCP tool use
 ---@param tool_use table Tool use object
 ---@return boolean
-function AssistantMessage:is_mcp_tool(tool_use)
+function AssistantMessage.is_mcp_tool(tool_use)
     if tool_use and tool_use.name then
         return tool_use.name:match("^mcp__") ~= nil
     end
@@ -143,7 +143,7 @@ end
 ---Parse MCP tool name into components
 ---@param tool_name string Full MCP tool name
 ---@return table? Components {server, tool} or nil
-function AssistantMessage:parse_mcp_tool_name(tool_name)
+function AssistantMessage.parse_mcp_tool_name(tool_name)
     if not tool_name then
         return nil
     end
