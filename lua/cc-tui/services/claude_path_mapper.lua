@@ -3,6 +3,7 @@
 --- Handles conversion between directory paths and Claude CLI project naming conventions
 ---@brief ]]
 
+local Config = require("cc-tui.config")
 local PathSecurity = require("cc-tui.utils.path_security")
 local log = require("cc-tui.utils.log")
 
@@ -33,6 +34,15 @@ function M.get_project_path(project_name)
     vim.validate({
         project_name = { project_name, "string" },
     })
+
+    -- SECURITY: Use test data directory during testing to prevent real user data access
+    if Config.is_testing_mode() then
+        -- Point to docs/test/projects/ for safe test data
+        local plugin_dir = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h")
+        local test_path = string.format("%s/docs/test/projects/%s", plugin_dir, project_name)
+        log.debug("ClaudePathMapper", string.format("Testing mode: Using test path %s", test_path))
+        return test_path
+    end
 
     local home = vim.fn.expand("~")
     local project_path = string.format("%s/.claude/projects/%s", home, project_name)
