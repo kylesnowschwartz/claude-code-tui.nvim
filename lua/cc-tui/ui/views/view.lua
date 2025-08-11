@@ -96,8 +96,7 @@ function ViewView:load_conversation(conversation_path)
 
         -- Trigger a re-render if this tab is currently active
         if self.manager and self.manager.current_tab == "view" then
-            -- Force a refresh by triggering tab switch
-            self.manager:render()
+            -- Only render tree since we're already in the view tab
             self:render_tree()
         end
     end)
@@ -126,22 +125,8 @@ function ViewView:render_tree()
         return
     end
 
-    -- Create or update tree component
-    local tree_config = {
-        icons = {
-            expanded = "▼",
-            collapsed = "▶",
-            empty = " ",
-        },
-        colors = {
-            session = "CcTuiSession",
-            message = "CcTuiMessage",
-            tool = "CcTuiTool",
-            result = "CcTuiResult",
-            text = "CcTuiText",
-            error = "CcTuiError",
-        },
-    }
+    -- Create or update tree component using helper methods
+    local tree_config = self:get_tree_config()
 
     if self.tree_component then
         -- Update existing tree
@@ -149,22 +134,8 @@ function ViewView:render_tree()
     else
         -- Create new tree using the popup's buffer
         self.tree_component = Tree.create_tree(self.tree_data, tree_config, bufnr)
-
-        -- Setup tree keybindings
-        Tree.setup_keybindings(self.tree_component, bufnr, {
-            keymaps = {
-                toggle = { "<Space>", "<CR>", "<Tab>" },
-                close = { "q" }, -- Remove Esc to avoid conflicts with tab navigation
-                expand_all = "o",
-                collapse_all = "c",
-                focus_next = { "j", "<Down>" },
-                focus_prev = { "k", "<Up>" },
-                close_content = "x",
-                close_all_content = "X",
-                copy_text = "y",
-                help = "?",
-            },
-        })
+        -- Setup tree keybindings using helper
+        self:setup_tree_keybindings(bufnr)
     end
 
     -- Make buffer modifiable temporarily for tree rendering
@@ -180,6 +151,45 @@ function ViewView:render_tree()
 
     self.tree_rendered = true
     log.debug("ViewView", "Tree rendered in buffer")
+end
+
+---Get tree configuration
+---@return table tree_config Configuration for tree creation
+function ViewView:get_tree_config()
+    return {
+        icons = {
+            expanded = "▼",
+            collapsed = "▶",
+            empty = " ",
+        },
+        colors = {
+            session = "CcTuiSession",
+            message = "CcTuiMessage",
+            tool = "CcTuiTool",
+            result = "CcTuiResult",
+            text = "CcTuiText",
+            error = "CcTuiError",
+        },
+    }
+end
+
+---Setup tree keybindings
+---@param bufnr number Buffer number
+function ViewView:setup_tree_keybindings(bufnr)
+    Tree.setup_keybindings(self.tree_component, bufnr, {
+        keymaps = {
+            toggle = { "<Space>", "<CR>", "<Tab>" },
+            close = { "q" }, -- Remove Esc to avoid conflicts with tab navigation
+            expand_all = "o",
+            collapse_all = "c",
+            focus_next = { "j", "<Down>" },
+            focus_prev = { "k", "<Up>" },
+            close_content = "x",
+            close_all_content = "X",
+            copy_text = "y",
+            help = "?",
+        },
+    })
 end
 
 ---Clear tree from buffer
@@ -226,9 +236,20 @@ function ViewView:on_activate()
     vim.api.nvim_buf_set_option(bufnr, "readonly", false)
 
     if self.tree_data then
-        -- Clear buffer and render tree
+        -- Clear buffer and render tree (render_tree will handle buffer setup)
         vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
-        self:render_tree()
+
+        -- Call render_tree without buffer option changes since we're already in activate
+        if self.tree_component then
+            Tree.update_tree(self.tree_component, self.tree_data, self:get_tree_config())
+        else
+            self.tree_component = Tree.create_tree(self.tree_data, self:get_tree_config(), bufnr)
+            self:setup_tree_keybindings(bufnr)
+        end
+
+        self.tree_component:render()
+        self.tree_rendered = true
+        log.debug("ViewView", "Tree rendered in activate")
     else
         -- Render empty state
         local lines = {}
