@@ -86,7 +86,17 @@ T["enter_opens_conversation_in_view"] = function()
         -- Mock a conversation selection
         if manager and manager.views and manager.views.browse then
             local browse_view = manager.views.browse
-            -- Set a test conversation path
+            -- Set up a mock conversation in the conversations array
+            browse_view.conversations = {
+                {
+                    filename = "conversation.jsonl",
+                    path = "/test/conversation.jsonl",
+                    timestamp = "2023-01-01T00:00:00Z",
+                    title = "Test Conversation"
+                }
+            }
+            browse_view.current_index = 1
+            -- Also set the test path for backward compatibility
             browse_view.selected_conversation_path = "/test/conversation.jsonl"
         end
     ]])

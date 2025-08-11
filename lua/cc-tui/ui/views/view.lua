@@ -36,13 +36,8 @@ function ViewView.new(manager)
     self.tree_component = nil
     self.tree_rendered = false
 
-    -- Try to load a default conversation (but not during testing for security)
-    if not Config.is_testing_mode() then
-        self:load_default_conversation()
-    else
-        self.empty_message = "No conversations found. Start a new conversation or select one from Browse tab"
-        log.debug("ViewView", "Constructor: Skipping auto-load in testing mode")
-    end
+    -- Try to load a default conversation (security handled at path mapping level)
+    self:load_default_conversation()
 
     -- Tree keymaps will be set up when tree is rendered
     -- Tab switching keymaps are handled by BaseView
@@ -52,15 +47,7 @@ end
 
 ---Load the default conversation (most recent)
 function ViewView:load_default_conversation()
-    -- SECURITY: Only load real conversations in production, not during testing
-    if Config.is_testing_mode() then
-        -- During testing, always show empty state to avoid loading real user data
-        self.empty_message = "No conversations found. Start a new conversation or select one from Browse tab"
-        log.debug("ViewView", "Testing mode: Using empty state instead of loading real conversations")
-        return
-    end
-
-    -- Production: Load the most recent conversation
+    -- Load the most recent conversation (security handled at path mapping level)
     local cwd = vim.fn.getcwd()
     local project_name = ProjectDiscovery.get_project_name(cwd)
     local recent = ClaudeState.get_most_recent_conversation(project_name)
@@ -77,16 +64,7 @@ end
 ---Load conversation data from a file path
 ---@param conversation_path string? Path to conversation file
 function ViewView:load_conversation(conversation_path)
-    -- SECURITY: Prevent loading real user data during testing
-    if Config.is_testing_mode() then
-        log.debug("ViewView", "Testing mode: Blocking conversation load for security")
-        self.messages = {}
-        self.tree_data = nil
-        self.conversation_path = conversation_path -- Store path but don't load data
-        self.tree_component = nil
-        self.empty_message = "Testing mode: Conversation loading blocked for security"
-        return
-    end
+    -- Security is now handled at the path mapping level in ClaudePathMapper
 
     if not conversation_path then
         -- Clear if no path provided

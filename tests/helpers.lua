@@ -175,4 +175,22 @@ Helpers.new_child_neovim = function()
     return child
 end
 
+---Setup test environment with proper test projects directory
+---@param child table Child process
+function Helpers.setup_test_config(child)
+    child.lua([[
+        local Config = require('cc-tui.config')
+
+        -- Calculate test projects directory path
+        local script_path = debug.getinfo(1, "S").source:sub(2)  -- Remove '@' prefix
+        local plugin_root = vim.fn.fnamemodify(script_path, ":p:h:h")  -- Go up to plugin root
+        local test_projects_dir = plugin_root .. "/docs/test/projects"
+
+        -- Set test directory configuration
+        Config.set_projects_directory(nil, test_projects_dir)
+
+        _G.test_projects_dir = test_projects_dir
+    ]])
+end
+
 return Helpers

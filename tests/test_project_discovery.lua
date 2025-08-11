@@ -94,15 +94,19 @@ T["get_project_path"] = MiniTest.new_set()
 T["get_project_path"]["generates correct paths"] = function()
     child.lua([[
         local ProjectDiscovery = require('cc-tui.services.project_discovery')
+        local Config = require('cc-tui.config')
 
-        -- Test basic project name
+        -- Test with default configuration (production behavior)
+        -- Temporarily override to test production paths regardless of testing mode
+        local original_is_testing = Config.is_testing_mode
+        Config.is_testing_mode = function() return false end
+
         _G.path1 = ProjectDiscovery.get_project_path("my-project")
-
-        -- Test project name with special characters
         _G.path2 = ProjectDiscovery.get_project_path("-Users-kyle-Code-cc-tui-nvim")
-
-        -- Check that paths use home directory expansion
         _G.home_path = vim.fn.expand("~")
+
+        -- Restore original function
+        Config.is_testing_mode = original_is_testing
     ]])
 
     local home_path = child.lua_get("_G.home_path")
@@ -113,6 +117,11 @@ end
 T["get_project_path"]["validates input"] = function()
     child.lua([[
         local ProjectDiscovery = require('cc-tui.services.project_discovery')
+        local Config = require('cc-tui.config')
+
+        -- Test with default configuration (production behavior)
+        local original_is_testing = Config.is_testing_mode
+        Config.is_testing_mode = function() return false end
 
         -- Test nil project name
         local success1 = pcall(ProjectDiscovery.get_project_path, nil)
@@ -122,6 +131,9 @@ T["get_project_path"]["validates input"] = function()
         local success2 = pcall(ProjectDiscovery.get_project_path, "")
         _G.empty_handled = success2 -- Should work, but might not be useful
         _G.empty_result = ProjectDiscovery.get_project_path("")
+
+        -- Restore original function
+        Config.is_testing_mode = original_is_testing
     ]])
 
     Helpers.expect.global(child, "_G.nil_handled", true)
@@ -412,7 +424,16 @@ T["integration"]["maps current project correctly"] = function()
         -- Test with the actual cc-tui.nvim project path from the test environment
         local test_cwd = "/Users/kyle/Code/cc-tui.nvim"
         _G.mapped_name = ProjectDiscovery.get_project_name(test_cwd)
+
+        -- Test with production configuration
+        local Config = require('cc-tui.config')
+        local original_is_testing = Config.is_testing_mode
+        Config.is_testing_mode = function() return false end
+
         _G.project_path = ProjectDiscovery.get_project_path(_G.mapped_name)
+
+        -- Restore original function
+        Config.is_testing_mode = original_is_testing
 
         -- Test if the mapped project would exist (this might fail if Claude CLI hasn't been used)
         _G.would_exist = ProjectDiscovery.project_exists(_G.mapped_name)

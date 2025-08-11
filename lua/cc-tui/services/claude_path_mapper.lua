@@ -35,18 +35,11 @@ function M.get_project_path(project_name)
         project_name = { project_name, "string" },
     })
 
-    -- SECURITY: Use test data directory during testing to prevent real user data access
-    if Config.is_testing_mode() then
-        -- Point to docs/test/projects/ for safe test data
-        local plugin_dir = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h")
-        local test_path = string.format("%s/docs/test/projects/%s", plugin_dir, project_name)
-        log.debug("ClaudePathMapper", string.format("Testing mode: Using test path %s", test_path))
-        return test_path
-    end
+    -- Use the configured projects directory
+    local projects_dir = Config.get_projects_directory()
+    local project_path = string.format("%s/%s", projects_dir, project_name)
 
-    local home = vim.fn.expand("~")
-    local project_path = string.format("%s/.claude/projects/%s", home, project_name)
-
+    log.debug_safe("ClaudePathMapper", string.format("Using projects directory: %s", projects_dir))
     return project_path
 end
 
@@ -64,11 +57,10 @@ end
 ---List all available Claude projects
 ---@return string[] projects List of project names
 function M.list_all_projects()
-    local home = vim.fn.expand("~")
-    local projects_dir = home .. "/.claude/projects"
+    local projects_dir = Config.get_projects_directory()
 
     if vim.fn.isdirectory(projects_dir) == 0 then
-        log.debug_safe("ClaudePathMapper", "No Claude projects directory found")
+        log.debug_safe("ClaudePathMapper", string.format("No Claude projects directory found at: %s", projects_dir))
         return {}
     end
 

@@ -25,6 +25,17 @@ CcTui.options = {
     -- SECURITY: Testing mode prevents loading real user conversation data
     testing_mode = false,
 
+    -- Projects directory configuration
+    projects = {
+        -- Base directory where Claude CLI stores project conversations
+        -- Defaults to ~/.claude/projects but can be configured for different setups
+        base_directory = nil, -- nil means use default (~/.claude/projects)
+
+        -- For testing: override directory to use test data
+        -- This is set automatically during testing mode
+        test_directory = nil, -- Set to docs/test/projects during testing
+    },
+
     -- Content classification and display thresholds
     content = {
         -- Thresholds for determining display strategies
@@ -104,6 +115,39 @@ function CcTui.setup(options)
     log.warn_deprecation(CcTui.options)
 
     return CcTui.options
+end
+
+---Get the configured base projects directory
+---@return string projects_directory The base directory where Claude projects are stored
+function CcTui.get_projects_directory()
+    local options = _G.CcTui and _G.CcTui.options or CcTui.options
+
+    -- During testing, use test directory if configured
+    if CcTui.is_testing_mode() and options.projects.test_directory then
+        return options.projects.test_directory
+    end
+
+    -- Use configured base directory, or default to ~/.claude/projects
+    if options.projects.base_directory then
+        return vim.fn.expand(options.projects.base_directory)
+    else
+        return vim.fn.expand("~/.claude/projects")
+    end
+end
+
+---Set the projects directory configuration (useful for testing and runtime config)
+---@param base_directory? string Base directory for projects (nil uses default)
+---@param test_directory? string Test directory override (only used during testing)
+function CcTui.set_projects_directory(base_directory, test_directory)
+    local options = _G.CcTui and _G.CcTui.options or CcTui.options
+
+    if base_directory then
+        options.projects.base_directory = base_directory
+    end
+
+    if test_directory then
+        options.projects.test_directory = test_directory
+    end
 end
 
 return CcTui
