@@ -3,33 +3,13 @@ max_line_length = false
 
 exclude_files = { "deps" }
 
--- Ignore unused self parameter in abstract methods and utility functions
-files["lua/cc-tui/providers/base.lua"] = {
-    ignore = { "212/self" } -- unused argument
-}
+-- Global ignore for unused self parameter since CLAUDE.md mandates colon syntax
+-- "Always use colon syntax: state:method() not state.method()"
+ignore = { "212/self" }
 
-files["lua/cc-tui/providers/static.lua"] = {
-    ignore = { "212/self" } -- unused argument
-}
-
-files["lua/cc-tui/ui/tabbed_manager.lua"] = {
-    ignore = { "212/self" } -- unused argument
-}
-
-files["lua/cc-tui/ui/views/base.lua"] = {
-    ignore = { "212/self" } -- unused argument for utility methods
-}
-
+-- File-specific ignores for other unused arguments
 files["lua/cc-tui/ui/views/current.lua"] = {
     ignore = { "212/session_info" } -- unused argument in callback
-}
-
-files["lua/cc-tui/ui/views/help.lua"] = {
-    ignore = { "212/self" } -- unused argument in refresh method
-}
-
-files["lua/cc-tui/ui/views/logs.lua"] = {
-    ignore = { "212/self" } -- unused argument in setup_keymaps
 }
 
 files["lua/cc-tui/utils/content_classifier.lua"] = {

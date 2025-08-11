@@ -155,7 +155,7 @@ end
 
 ---Get tree configuration
 ---@return table tree_config Configuration for tree configuration
-function ViewView:get_tree_config() -- luacheck: ignore 212/self
+function ViewView:get_tree_config()
     return {
         icons = {
             expanded = "▼",
