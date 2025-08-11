@@ -4,7 +4,7 @@
 ---@brief ]]
 
 local BaseView = require("cc-tui.ui.views.base")
-local NuiLine = require("nui.line")
+-- local NuiLine = require("nui.line")
 local Tree = require("cc-tui.ui.tree")
 local log = require("cc-tui.utils.log")
 
@@ -198,7 +198,7 @@ end
 ---Render the view tab content
 ---@param available_height number Available height for content
 ---@return NuiLine[] lines View content lines (or empty when tree is active)
-function ViewView:render(_available_height)
+function ViewView.render(self, _available_height)
     -- Always return empty lines - tree rendering is handled separately via on_activate()
     -- This prevents conflicts between line-based rendering and direct tree rendering
     return {}

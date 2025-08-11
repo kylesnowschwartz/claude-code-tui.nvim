@@ -29,7 +29,7 @@ T["browse_is_default_tab"] = function()
         _G.test_manager:show()
         _G.test_result = _G.test_manager.current_tab
     ]])
-    
+
     local current_tab = child.lua_get("_G.test_result")
     MiniTest.expect.equality(current_tab, "browse")
 end
@@ -41,7 +41,7 @@ T["view_tab_exists"] = function()
         local tabs = TabbedManager.get_tab_definitions()
         _G.has_view = false
         _G.has_current = false
-        
+
         for _, tab in ipairs(tabs) do
             if tab.id == "view" then
                 _G.has_view = true
@@ -51,10 +51,10 @@ T["view_tab_exists"] = function()
             end
         end
     ]])
-    
+
     local has_view = child.lua_get("_G.has_view")
     local has_current = child.lua_get("_G.has_current")
-    
+
     MiniTest.expect.equality(has_view, true, "Should have a 'view' tab")
     MiniTest.expect.equality(has_current, false, "Should not have a 'current' tab")
 end
@@ -66,7 +66,7 @@ T["open_conversation_method_exists"] = function()
         local manager = TabbedManager.new()
         _G.test_result = type(manager.open_conversation_in_view) == "function"
     ]])
-    
+
     local has_method = child.lua_get("_G.test_result")
     MiniTest.expect.equality(has_method, true, "Should have open_conversation_in_view method")
 end
@@ -77,19 +77,19 @@ T["view_tab_empty_state"] = function()
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
         local manager = TabbedManager.new()
         manager:show()
-        
+
         -- Switch to view tab
         manager:switch_to_tab("view")
-        
+
         -- Load view and check empty state
         local view = manager:load_view("view")
         _G.has_empty_message = view.empty_message ~= nil
         _G.has_no_tree = view.tree_data == nil
     ]])
-    
+
     local has_empty_message = child.lua_get("_G.has_empty_message")
     local has_no_tree = child.lua_get("_G.has_no_tree")
-    
+
     MiniTest.expect.equality(has_empty_message, true, "View should have empty message")
     MiniTest.expect.equality(has_no_tree, true, "View should have no tree data initially")
 end
@@ -100,14 +100,14 @@ T["browse_tracks_selection"] = function()
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
         local manager = TabbedManager.new()
         manager:show()
-        
+
         -- Get browse view
         local browse = manager:load_view("browse")
-        
+
         -- Check that it has the field for tracking
         _G.has_field = browse.selected_conversation_path == nil
     ]])
-    
+
     local has_field = child.lua_get("_G.has_field")
     MiniTest.expect.equality(has_field, true, "Browse should have selected_conversation_path field")
 end
