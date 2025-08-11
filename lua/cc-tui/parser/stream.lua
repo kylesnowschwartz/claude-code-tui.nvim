@@ -223,15 +223,46 @@ function M.get_session_info(messages)
         messages = { messages, "table" },
     })
 
+    local session_info = {}
+    local found_session = false
+
+    -- Look for summary messages for a better title
+    for _, msg in ipairs(messages) do
+        if msg.type == "summary" and msg.summary then
+            session_info.summary = msg.summary
+            break
+        end
+    end
+
+    -- First try to find a system init message (older format)
     for _, msg in ipairs(messages) do
         if msg.type == "system" and msg.subtype == "init" then
-            return {
-                id = msg.session_id,
-                tools = msg.tools,
-                model = msg.model,
-                cwd = msg.cwd,
-            }
+            session_info.id = msg.session_id or msg.sessionId
+            session_info.tools = msg.tools
+            session_info.model = msg.model
+            session_info.cwd = msg.cwd
+            found_session = true
+            break
         end
+    end
+
+    -- Fall back to extracting sessionId from any message that has it
+    if not found_session then
+        for _, msg in ipairs(messages) do
+            if msg.sessionId or msg.session_id then
+                session_info.id = msg.sessionId or msg.session_id
+                session_info.cwd = msg.cwd
+                session_info.model = msg.model
+                session_info.version = msg.version
+                session_info.gitBranch = msg.gitBranch
+                found_session = true
+                break
+            end
+        end
+    end
+
+    if found_session then
+        return session_info
     end
 
     return nil

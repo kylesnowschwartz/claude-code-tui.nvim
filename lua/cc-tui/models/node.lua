@@ -59,10 +59,20 @@ function M.create_session_node(session_id, data)
     data = data or {}
     local timestamp = data.timestamp or os.date("%H:%M:%S")
 
+    -- Use summary if available, otherwise use session ID
+    local display_name = session_id:sub(1, 8)
+    if data.summary then
+        -- Truncate long summaries
+        display_name = data.summary
+        if #display_name > 50 then
+            display_name = display_name:sub(1, 47) .. "..."
+        end
+    end
+
     return {
         id = "session-" .. session_id,
         type = M.NodeType.SESSION,
-        text = string.format("Session: %s [%s]", session_id:sub(1, 8), timestamp),
+        text = string.format("Session: %s", display_name),
         children = {},
         expanded = true,
         data = data,
