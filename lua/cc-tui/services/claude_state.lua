@@ -4,7 +4,6 @@
 ---@brief ]]
 
 local ProjectDiscovery = require("cc-tui.services.project_discovery")
-local log = require("cc-tui.utils.log")
 
 ---@class CcTui.Services.ClaudeState
 local M = {}

@@ -14,7 +14,6 @@
 
 local DataLoader = require("cc-tui.core.data_loader")
 local Parser = require("cc-tui.parser.stream")
-local StreamManager = require("cc-tui.core.stream_manager")
 local TabbedManager = require("cc-tui.ui.tabbed_manager")
 local TreeBuilder = require("cc-tui.models.tree_builder")
 local log = require("cc-tui.utils.log")
@@ -108,9 +107,6 @@ function M.disable(scope)
         main_state.tabbed_manager = nil
     end
 
-    -- Stop any active streaming
-    StreamManager.stop_streaming()
-
     -- Clear local state
     main_state.messages = {}
     main_state.tree_data = nil
@@ -165,37 +161,8 @@ function M.process_line(line)
     end
 end
 
----Start streaming from Claude CLI
----@param config? table StreamProvider configuration {command, args, timeout}
----@return nil
-function M.start_streaming(config)
-    vim.validate({
-        config = { config, "table", true },
-    })
-
-    local callbacks = {
-        on_start = function()
-            log.debug("main", "Streaming started")
-        end,
-        on_data = function(line)
-            M.process_line(line)
-        end,
-        on_error = function(err)
-            log.debug("main", "Streaming error: " .. err)
-        end,
-        on_complete = function()
-            log.debug("main", "Streaming completed")
-        end,
-    }
-
-    StreamManager.start_streaming(config, callbacks)
-end
-
----Stop active streaming
----@return nil
-function M.stop_streaming()
-    StreamManager.stop_streaming()
-end
+-- Streaming functions removed - moved to speculative_enhancements branch
+-- These will be re-added when Claude Code officially supports streaming
 
 ---Load conversation from JSONL file
 ---@param conversation_path string Path to conversation JSONL file
@@ -223,14 +190,11 @@ end
 ---Get current state for debugging (backward compatibility with tabbed interface)
 ---@return table state State structure for debugging and tests
 function M.get_state()
-    local stream_state = StreamManager.get_state()
-
     -- Return state structure adapted for tabbed interface
     return {
         tabbed_manager = main_state.tabbed_manager,
         tree_data = main_state.tree_data,
         messages = main_state.messages,
-        streaming_provider = stream_state.streaming_provider,
         is_active = main_state.tabbed_manager and main_state.tabbed_manager:is_active() or false,
         current_tab = main_state.tabbed_manager and main_state.tabbed_manager.current_tab or nil,
     }
