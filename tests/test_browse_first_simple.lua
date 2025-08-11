@@ -12,6 +12,9 @@ local T = MiniTest.new_set({
         pre_case = function()
             child.restart({ "-u", "scripts/minimal_init.lua" })
             child.lua([[
+                -- SECURITY: Set testing flag to prevent loading real user data
+                _G.CcTui_Testing = true
+
                 -- Load the plugin
                 require("cc-tui").setup({ debug = true })
             ]])

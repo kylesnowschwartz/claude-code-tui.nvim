@@ -93,6 +93,9 @@ Helpers.new_child_neovim = function()
     child.setup = function()
         child.restart({ "-u", "scripts/minimal_init.lua" })
 
+        -- SECURITY: Set testing flag to prevent loading real user data
+        child.lua([[ _G.CcTui_Testing = true ]])
+
         -- Change initial buffer to be readonly. This not only increases execution
         -- speed, but more closely resembles manually opened Neovim.
         child.bo.readonly = false
