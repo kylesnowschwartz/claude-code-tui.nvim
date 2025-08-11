@@ -32,7 +32,7 @@ T["Browse Selection Fix - GREEN State"] = function()
     -- Test 2: TabbedManager now has conversation context methods
     child.lua([[
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
-        local manager = TabbedManager.new({ default_tab = "current" })
+        local manager = TabbedManager.new({ default_tab = "browse" })
         _G.test_result_2a = type(manager.set_current_conversation) == "function"
         _G.test_result_2b = type(manager.get_current_conversation) == "function"
     ]])
@@ -51,11 +51,12 @@ T["Browse Selection Fix - GREEN State"] = function()
     -- Test 3: Current view now tracks conversation path
     child.lua([[
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
-        local manager = TabbedManager.new({ default_tab = "current" })
+        local manager = TabbedManager.new({ default_tab = "browse" })
         manager:show()
 
-        local current_view = manager.views.current
-        _G.test_result_3 = current_view.conversation_path ~= nil
+        -- Try to load the view tab
+        local view_tab = manager:load_view("view")
+        _G.test_result_3 = view_tab ~= nil and view_tab.conversation_path == nil
     ]])
 
     local has_conversation_path = child.lua_get("_G.test_result_3")
@@ -64,7 +65,7 @@ T["Browse Selection Fix - GREEN State"] = function()
     -- Let's test that we can track the conversation path without loading
     child.lua([[
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
-        local manager = TabbedManager.new({ default_tab = "current" })
+        local manager = TabbedManager.new({ default_tab = "browse" })
         manager:show()
 
         -- Test just the path tracking without loading

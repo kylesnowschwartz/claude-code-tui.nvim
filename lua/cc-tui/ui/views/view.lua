@@ -45,30 +45,41 @@ end
 ---Load conversation data from a file path
 ---@param conversation_path string? Path to conversation file
 function ViewView:load_conversation(conversation_path)
-    -- Use existing data loader to get current conversation
-    local root, err, messages = DataLoader.load_test_data()
-
-    if not root then
-        log.debug("ViewView", "Failed to load conversation data: " .. (err or "unknown error"))
+    if not conversation_path then
+        -- Clear if no path provided
         self.messages = {}
         self.tree_data = nil
+        self.conversation_path = nil
+        self.empty_message = "Select a conversation from the Browse tab to view"
         return
     end
 
-    self.messages = messages or {}
-    self.tree_data = root
+    self.conversation_path = conversation_path
+    self.empty_message = nil
 
-    -- Set initial expanded state for root nodes
-    if self.tree_data and self.tree_data.children then
-        for _, child in ipairs(self.tree_data.children) do
-            self.expanded_nodes[child.id or tostring(child)] = true
+    -- Use DataLoader to load the specific conversation
+    DataLoader.load_conversation(conversation_path, function(messages, root, _, path)
+        self.messages = messages or {}
+        self.tree_data = root
+        self.conversation_path = path
+
+        -- Set initial expanded state for root nodes
+        if self.tree_data and self.tree_data.children then
+            for _, child in ipairs(self.tree_data.children) do
+                self.expanded_nodes[child.id or tostring(child)] = true
+            end
         end
-    end
 
-    log.debug("ViewView", string.format("Loaded conversation with %d messages", #self.messages))
+        log.debug("ViewView", string.format("Loaded conversation with %d messages", #self.messages))
+
+        -- Trigger re-render if manager exists
+        if self.manager then
+            self.manager:render()
+        end
+    end)
 end
 
----Load specific conversation by file path
+---Load specific conversation by file path (alias for backward compatibility)
 ---@param conversation_path string Path to conversation JSONL file
 function ViewView:load_specific_conversation(conversation_path)
     vim.validate({
@@ -222,10 +233,7 @@ function ViewView:render(available_height)
         else
             table.insert(lines, self:create_padded_line("No conversation loaded", 4, "CcTuiMuted"))
         end
-        table.insert(
-            lines,
-            self:create_padded_line("Press 'B' to browse conversations", 4, "CcTuiMuted")
-        )
+        table.insert(lines, self:create_padded_line("Press 'B' to browse conversations", 4, "CcTuiMuted"))
         return lines
     end
 

@@ -23,6 +23,9 @@ local text_utils = require("cc-tui.utils.text")
 local TabbedManager = {}
 TabbedManager.__index = TabbedManager
 
+-- Singleton instance storage
+local _instance = nil
+
 ---@class CcTui.TabConfig
 ---@field id string Tab identifier (e.g., "current", "browse", "logs", "help")
 ---@field key string Keyboard shortcut key (e.g., "C", "B", "L", "?")
@@ -32,7 +35,7 @@ TabbedManager.__index = TabbedManager
 ---@class CcTui.TabbedManagerOptions
 ---@field width? number|string Width of manager window (default: "80%")
 ---@field height? number|string Height of manager window (default: "80%")
----@field default_tab? string Default tab to open (default: "current")
+---@field default_tab? string Default tab to open (default: "browse")
 ---@field on_close? function Optional callback when manager is closed
 
 -- UI Constants
@@ -47,16 +50,16 @@ local DEFAULTS = {
 -- Tab definitions following PRD specifications
 local TAB_DEFINITIONS = {
     {
-        id = "current",
-        key = "C",
-        label = "Current",
-        view = "current",
-    },
-    {
         id = "browse",
         key = "B",
         label = "Browse",
         view = "browse",
+    },
+    {
+        id = "view",
+        key = "V",
+        label = "View",
+        view = "view",
     },
     {
         id = "logs",
@@ -142,7 +145,7 @@ function TabbedManager.new(opts)
 
     -- Initialize state
     self.tabs = vim.deepcopy(TAB_DEFINITIONS)
-    self.current_tab = opts.default_tab or "current"
+    self.current_tab = opts.default_tab or "browse"
     self.views = {}
     self.on_close_callback = opts.on_close
     self.current_conversation_path = nil
@@ -415,21 +418,15 @@ function TabbedManager:refresh_current_tab()
     log.debug("TabbedManager", string.format("Refreshed tab: %s", self.current_tab))
 end
 
----Set the current conversation for cross-tab context
+---Set the current conversation for cross-tab context (deprecated - use open_conversation_in_view)
 ---@param conversation_path string Path to conversation file
 function TabbedManager:set_current_conversation(conversation_path)
     vim.validate({
         conversation_path = { conversation_path, "string" },
     })
 
-    self.current_conversation_path = conversation_path
-    log.debug("TabbedManager", string.format("Set current conversation: %s", conversation_path))
-
-    -- Ensure Current view is loaded before attempting to set conversation
-    local current_view = self:load_view("current")
-    if current_view and type(current_view.load_specific_conversation) == "function" then
-        current_view:load_specific_conversation(conversation_path)
-    end
+    -- Redirect to new method
+    self:open_conversation_in_view(conversation_path)
 end
 
 ---Get the current conversation path
@@ -543,6 +540,9 @@ function TabbedManager:show()
     self:render()
     self:apply_view_keymaps()
 
+    -- Store singleton instance
+    TabbedManager.set_instance(self)
+
     log.debug("TabbedManager", string.format("Showed tabbed manager, active tab: %s", self.current_tab))
 end
 
@@ -563,6 +563,9 @@ function TabbedManager:close()
             self.on_close_callback()
         end
 
+        -- Clear singleton instance
+        TabbedManager.set_instance(nil)
+
         log.debug("TabbedManager", "Closed tabbed manager")
     end
 end
@@ -571,6 +574,47 @@ end
 ---@return boolean active True if manager is shown and valid
 function TabbedManager:is_active()
     return self.popup ~= nil and self.popup.bufnr ~= nil and vim.api.nvim_buf_is_valid(self.popup.bufnr)
+end
+
+---Get singleton instance of TabbedManager
+---@return CcTui.UI.TabbedManager? instance Current instance or nil
+function TabbedManager.get_instance()
+    return _instance
+end
+
+---Set singleton instance (used internally)
+---@param instance CcTui.UI.TabbedManager? Manager instance to store
+function TabbedManager.set_instance(instance)
+    _instance = instance
+end
+
+---Open a conversation in the View tab
+---@param conversation_path string Path to conversation file
+function TabbedManager:open_conversation_in_view(conversation_path)
+    vim.validate({
+        conversation_path = { conversation_path, "string" },
+    })
+
+    -- Switch to view tab
+    self:switch_to_tab("view")
+
+    -- Load the conversation in the view
+    local view = self:load_view("view")
+    if view and type(view.load_conversation) == "function" then
+        view:load_conversation(conversation_path)
+    end
+
+    -- Store as current conversation
+    self.current_conversation_path = conversation_path
+
+    -- Re-render
+    self:render()
+end
+
+---Get tab definitions for testing
+---@return CcTui.TabConfig[] tabs Tab configuration array
+function TabbedManager.get_tab_definitions()
+    return vim.deepcopy(TAB_DEFINITIONS)
 end
 
 return TabbedManager
