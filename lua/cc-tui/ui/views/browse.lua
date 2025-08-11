@@ -272,7 +272,10 @@ function BrowseView:render(available_height)
         table.insert(lines, self:create_separator_line(width, "─", "CcTuiMuted"))
 
         local help_line = NuiLine()
-        help_line:append("  [j/k] Navigate  [Tab] Toggle Metadata  [Enter] Open  [r] Refresh", "CcTuiMuted")
+        help_line:append(
+            "  [j/k] Navigate  [Tab] Toggle Metadata  [Enter] Open  [o] Open File  [r] Refresh",
+            "CcTuiMuted"
+        )
         table.insert(lines, help_line)
     end
 
@@ -333,6 +336,33 @@ function BrowseView:select_current()
     end
 end
 
+---Open current conversation JSONL file in Neovim editor
+---@description Closes the cc-tui interface and opens the selected conversation's JSONL file directly in the editor
+function BrowseView:open_conversation_file()
+    if #self.conversations == 0 then
+        return
+    end
+
+    local conv = self.conversations[self.current_index]
+    if conv and conv.path then
+        log.debug("BrowseView", string.format("Opening conversation file: %s", conv.path))
+
+        -- Close cc-tui interface first
+        if self.manager then
+            self.manager:close()
+        end
+
+        -- Open the JSONL file in Neovim
+        vim.schedule(function()
+            vim.cmd("edit " .. vim.fn.fnameescape(conv.path))
+            vim.notify(string.format("Opened conversation file: %s", conv.title or "Untitled"), vim.log.levels.INFO)
+        end)
+    elseif conv then
+        -- Conversation exists but has no path - show error
+        vim.notify("Cannot open conversation file: path not available", vim.log.levels.WARN)
+    end
+end
+
 ---Set up browse view specific keymaps
 function BrowseView:setup_keymaps()
     self.keymaps = {
@@ -359,6 +389,9 @@ function BrowseView:setup_keymaps()
         end,
         ["<CR>"] = function()
             self:select_current()
+        end,
+        ["o"] = function()
+            self:open_conversation_file()
         end,
         ["r"] = function()
             self:refresh()

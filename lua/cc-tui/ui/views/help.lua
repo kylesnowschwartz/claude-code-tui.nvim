@@ -104,6 +104,7 @@ function HelpView:render(_)
     local browse_shortcuts = {
         { key = "j/k", desc = "Navigate up/down conversation list" },
         { key = "Enter", desc = "Open selected conversation" },
+        { key = "o", desc = "Open conversation JSONL file in editor" },
         { key = "Tab", desc = "Toggle metadata display" },
         { key = "r", desc = "Refresh conversation list" },
         { key = "gg/G", desc = "Jump to first/last conversation" },

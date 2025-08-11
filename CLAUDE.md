@@ -132,6 +132,54 @@ Uses `mini.test` with:
 - Minimal init script at `scripts/minimal_init.lua`
 - Coverage for parser, UI components, and integration scenarios
 
+### Proper Testing Methodology - Critical Guidelines
+
+**MANDATORY**: When adding new functionality, you MUST write specific unit tests for that functionality. Running existing tests does NOT constitute testing new features.
+
+#### Test-Driven Development Requirements
+1. **New Method Testing**: Every new method requires dedicated unit tests covering:
+   - Method existence verification
+   - Core functionality with valid inputs
+   - Edge cases and error conditions
+   - Integration with dependent components
+   - Keymap integration when applicable
+
+2. **API Validation First**: Before implementing, verify API method names by reading the actual codebase
+   - Examine interface definitions using file reading tools
+   - Check existing method signatures and return types
+   - Validate assumptions about dependencies by inspecting actual code
+
+3. **Test Isolation**: Follow established patterns from existing test files
+   - Use child process isolation to prevent test interference
+   - Store test results in global variables for retrieval
+   - Mock external dependencies to capture behavior without side effects
+
+4. **External Dependency Mocking**: Always mock system functions to prevent side effects
+   - Replace vim functions with test doubles that capture calls
+   - Store original functions and restore them after tests
+   - Verify the correct commands and notifications are generated
+
+5. **Edge Case Coverage**: Test failure modes that reveal implementation bugs
+   - Test with nil and missing parameters
+   - Verify bounds checking with invalid indices
+   - Test resource cleanup during error conditions
+   - Validate input sanitization and error handling
+
+#### Common Testing Anti-Patterns to Avoid
+- **False Security**: Running existing tests and claiming new functionality is tested
+- **Assumption-Based Implementation**: Writing code based on assumed API names without verification
+- **Side Effect Testing**: Tests that depend on external state or cause permanent changes
+- **Happy Path Only**: Testing only successful execution paths without error scenarios
+
+#### Bug Discovery Through Testing
+Proper unit tests often reveal implementation bugs by testing edge cases and validating assumptions about external APIs. Testing with invalid inputs frequently exposes handling issues that would cause runtime errors in production.
+
+#### Test File Organization
+- Create dedicated test files for new features following existing naming patterns
+- Group related tests using the established test framework structure
+- Include comprehensive documentation in test file headers explaining purpose and coverage
+- Follow project naming conventions for consistency and discoverability
+
 ## Dependencies
 
 ### Runtime Dependencies
