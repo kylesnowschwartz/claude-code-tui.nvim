@@ -40,6 +40,9 @@ function ViewView.new(manager)
     -- Setup keymaps (from working commit)
     self:setup_keymaps()
 
+    -- Setup cursor tracking for native navigation
+    self:setup_cursor_tracking()
+
     return self
 end
 
@@ -87,11 +90,9 @@ function ViewView:load_conversation(conversation_path)
         self.selected_index = 1
         self.expanded_nodes = {}
 
-        -- Set initial expanded state for root nodes (from working commit)
-        if self.tree_data and self.tree_data.children then
-            for _, child in ipairs(self.tree_data.children) do
-                self.expanded_nodes[child.id or tostring(child)] = true
-            end
+        -- Set initial expanded state for root session node only
+        if self.tree_data then
+            self.expanded_nodes[self.tree_data.id or tostring(self.tree_data)] = true
         end
 
         log.debug("ViewView", string.format("Loaded conversation with %d messages", #self.messages))
@@ -184,38 +185,10 @@ local function get_node_display_text(node)
         end
 
         return string.format("%s %s: %s", icon, role, preview), highlight
-    elseif node.type == "text_display" then
-        -- Enhanced text display container
-        local text = node.text or "Full Response"
-        local is_expanded = node.expanded or false
-
-        if is_expanded and node.data and node.data.full_content then
-            return "📖 " .. text .. " (expanded)", "String"
-        else
-            return "📄 " .. text .. " (collapsed)", "Function"
-        end
-    elseif node.type == "hint" then
-        -- Hint nodes for user guidance
-        local text = node.text or "Hint"
-        return "💡 " .. text, "Comment"
     elseif node.type == "text" then
-        -- Enhanced text node display with better formatting
+        -- Simple text node display
         local text = node.text or "Text"
-        local highlight = "Comment"
-
-        -- Special formatting for "Full text:" nodes
-        if text:match("^Full text: ") then
-            -- Extract the actual text content
-            local content = text:gsub("^Full text: ", "")
-            return "📄 " .. content, "String"
-        elseif text:match("^          ") then
-            -- Continuation lines with improved indentation
-            local content = text:gsub("^          ", "")
-            return "   ↳ " .. content, "Comment"
-        else
-            -- Regular text nodes with icon
-            return "💭 " .. text, highlight
-        end
+        return text, "Comment"
     elseif node.type == "tool" then
         -- Tool nodes
         local text = node.text or "Tool"
@@ -267,8 +240,9 @@ function ViewView:render_tree_as_lines(available_height)
         return lines
     end
 
-    -- Calculate how many tree items we can show
-    local items_to_show = math.min(#flattened, available_height - 3) -- Reserve space for help
+    -- Render ALL tree items (let Neovim handle scrolling)
+    -- This matches the working commit behavior where all items were rendered
+    local items_to_show = #flattened
 
     -- Render tree items (same logic as working commit)
     for i = 1, items_to_show do
@@ -322,21 +296,11 @@ function ViewView:render_tree_as_lines(available_height)
     return lines
 end
 
----Setup working keymaps from commit 928807a3
+---Setup working keymaps following MCPHub pattern - let Neovim handle j/k natively
 function ViewView:setup_keymaps()
     self.keymaps = {
-        ["j"] = function()
-            self:next_item()
-        end,
-        ["k"] = function()
-            self:prev_item()
-        end,
-        ["<Down>"] = function()
-            self:next_item()
-        end,
-        ["<Up>"] = function()
-            self:prev_item()
-        end,
+        -- Remove j/k overrides to allow native Neovim navigation
+        -- j and k will work naturally and trigger CursorMoved events
         ["<Space>"] = function()
             self:toggle_selected_node()
         end,
@@ -347,24 +311,18 @@ function ViewView:setup_keymaps()
             self:toggle_selected_node()
         end,
         ["h"] = function()
-            local flattened = self:get_flattened_tree()
-            if self.selected_index <= #flattened then
-                local item = flattened[self.selected_index]
-                self.expanded_nodes[item.node.id or tostring(item.node)] = false
-            end
+            self:collapse_selected_node()
         end,
         ["l"] = function()
-            local flattened = self:get_flattened_tree()
-            if self.selected_index <= #flattened then
-                local item = flattened[self.selected_index]
-                self.expanded_nodes[item.node.id or tostring(item.node)] = true
-            end
+            self:expand_selected_node()
         end,
         ["o"] = function()
             self:expand_all()
+            self:refresh_display()
         end,
         ["c"] = function()
             self:collapse_all()
+            self:refresh_display()
         end,
         ["x"] = function()
             -- Close content window for selected result node
@@ -394,18 +352,76 @@ function ViewView:setup_keymaps()
     }
 end
 
----Navigate to next item in tree (from working commit)
-function ViewView:next_item()
-    local flattened = self:get_flattened_tree()
-    if #flattened > 0 then
-        self.selected_index = math.min(self.selected_index + 1, #flattened)
+---Setup CursorMoved event handler following MCPHub pattern
+function ViewView:setup_cursor_tracking()
+    if not self.manager or not self.manager.buffer then
+        return
+    end
+
+    -- Clear any existing autocmds
+    if self.cursor_group then
+        vim.api.nvim_del_augroup_by_id(self.cursor_group)
+    end
+
+    -- Create autocmd group for cursor tracking
+    self.cursor_group = vim.api.nvim_create_augroup("CcTuiViewCursor", { clear = true })
+
+    vim.api.nvim_create_autocmd("CursorMoved", {
+        group = self.cursor_group,
+        buffer = self.manager.buffer,
+        callback = function()
+            self:handle_cursor_move()
+        end,
+    })
+end
+
+---Handle cursor movement to update selected tree item
+function ViewView:handle_cursor_move()
+    if not self.manager or not self.manager.window or not vim.api.nvim_win_is_valid(self.manager.window) then
+        return
+    end
+
+    local cursor = vim.api.nvim_win_get_cursor(self.manager.window)
+    local line = cursor[1]
+
+    -- Map cursor line to tree item index (but don't trigger re-render)
+    local new_selected_index = self:line_to_tree_index(line)
+    if new_selected_index and new_selected_index ~= self.selected_index then
+        self.selected_index = new_selected_index
+        -- Don't re-render during cursor movement - let Neovim handle the display
+        -- The selection will be updated on the next natural render cycle
     end
 end
 
----Navigate to previous item in tree (from working commit)
-function ViewView:prev_item()
-    if self.selected_index > 1 then
-        self.selected_index = self.selected_index - 1
+---Map buffer line number to tree item index
+---@param line_number number Current cursor line number
+---@return number? index Tree item index or nil if not on a tree item
+function ViewView:line_to_tree_index(line_number)
+    -- Account for header (2 lines: title + empty line)
+    local tree_line = line_number - 2
+
+    -- Must be positive
+    if tree_line < 1 then
+        return 1 -- Default to first item if above tree area
+    end
+
+    local flattened = self:get_flattened_tree()
+    if #flattened == 0 then
+        return nil
+    end
+
+    -- Clamp to valid range
+    if tree_line > #flattened then
+        return #flattened
+    end
+
+    return tree_line
+end
+
+---Refresh display without moving cursor
+function ViewView:refresh_display()
+    if self.manager and self.manager.current_tab == "view" then
+        self.manager:render()
     end
 end
 
@@ -430,13 +446,11 @@ function ViewView:toggle_selected_node()
         -- Handle result nodes with content popups (like original tree system)
         if node.data and node.data.type == "result" then
             self:toggle_result_content(node)
-        elseif node.type == "text_display" then
-            -- Handle enhanced text display expansion
-            self:toggle_text_display(node)
         elseif node.children and #node.children > 0 then
             -- Handle regular tree expansion
             local node_key = node.id or tostring(node)
             self.expanded_nodes[node_key] = not self.expanded_nodes[node_key]
+            self:refresh_display()
         end
     end
 end
@@ -500,70 +514,6 @@ function ViewView:toggle_result_content(node)
     end
 end
 
----Toggle enhanced text display expansion/collapse
----@param node CcTui.BaseNode Text display node
-function ViewView:toggle_text_display(node)
-    if not node.data or node.data.type ~= "text_display" then
-        log.debug("ViewView", "Node is not a text_display type")
-        return
-    end
-
-    local TreeBuilder = require("cc-tui.models.tree_builder")
-    local Node = require("cc-tui.models.node")
-
-    -- Toggle expansion state
-    local is_currently_expanded = self.expanded_nodes[node.id or tostring(node)]
-    self.expanded_nodes[node.id or tostring(node)] = not is_currently_expanded
-
-    if not is_currently_expanded then
-        -- Expand: Replace children with full text display
-        node.children = {}
-        local full_content = node.data.full_content or ""
-
-        if #full_content > 0 then
-            -- Create detailed chunks of the full text
-            local chunks = TreeBuilder.split_text_into_chunks(full_content, 100)
-            for i, chunk in ipairs(chunks) do
-                local prefix = i == 1 and "📖 Full text: " or "          "
-                local text_node = Node.create_text_node(prefix .. chunk, node.id, i)
-                table.insert(node.children, text_node)
-            end
-
-            -- Add collapse hint
-            local collapse_hint = Node.create_text_node("   [Press Space/Enter to collapse]", node.id, #chunks + 1)
-            collapse_hint.type = "hint"
-            table.insert(node.children, collapse_hint)
-        end
-
-        log.debug("ViewView", string.format("Expanded text display with %d chunks", #node.children))
-    else
-        -- Collapse: Restore original preview children
-        node.children = {}
-        local full_content = node.data.full_content or ""
-
-        if #full_content > 300 then
-            -- Show preview again
-            local preview = full_content:sub(1, 150) .. "..."
-            local preview_node = Node.create_text_node("Full text: " .. preview, node.id, 1)
-            table.insert(node.children, preview_node)
-
-            local expand_hint = Node.create_text_node("   [Press Space/Enter to expand full text]", node.id, 2)
-            expand_hint.type = "hint"
-            table.insert(node.children, expand_hint)
-        else
-            -- For shorter text, show directly
-            local chunks = TreeBuilder.split_text_into_chunks(full_content, 120)
-            for i, chunk in ipairs(chunks) do
-                local prefix = i == 1 and "Full text: " or "          "
-                local text_node = Node.create_text_node(prefix .. chunk, node.id, i)
-                table.insert(node.children, text_node)
-            end
-        end
-
-        log.debug("ViewView", "Collapsed text display")
-    end
-end
-
 ---Expand all nodes (from working commit)
 function ViewView:expand_all()
     local function expand_recursive(node)
@@ -583,6 +533,30 @@ end
 ---Collapse all nodes (from working commit)
 function ViewView:collapse_all()
     self.expanded_nodes = {}
+end
+
+---Expand the currently selected node
+function ViewView:expand_selected_node()
+    local flattened = self:get_flattened_tree()
+    if self.selected_index <= #flattened then
+        local item = flattened[self.selected_index]
+        if item.node.children and #item.node.children > 0 then
+            self.expanded_nodes[item.node.id or tostring(item.node)] = true
+            self:refresh_display()
+        end
+    end
+end
+
+---Collapse the currently selected node
+function ViewView:collapse_selected_node()
+    local flattened = self:get_flattened_tree()
+    if self.selected_index <= #flattened then
+        local item = flattened[self.selected_index]
+        if item.node.children and #item.node.children > 0 then
+            self.expanded_nodes[item.node.id or tostring(item.node)] = false
+            self:refresh_display()
+        end
+    end
 end
 
 ---Refresh current conversation data (from working commit)
