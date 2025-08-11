@@ -126,7 +126,7 @@ function ViewView:render_tree()
     end
 
     -- Create or update tree component using helper methods
-    local tree_config = ViewView.get_tree_config()
+    local tree_config = self:get_tree_config()
 
     if self.tree_component then
         -- Update existing tree
@@ -154,8 +154,8 @@ function ViewView:render_tree()
 end
 
 ---Get tree configuration
----@return table tree_config Configuration for tree creation
-function ViewView.get_tree_config()
+---@return table tree_config Configuration for tree configuration
+function ViewView:get_tree_config() -- luacheck: ignore 212/self
     return {
         icons = {
             expanded = "▼",
@@ -241,9 +241,9 @@ function ViewView:on_activate()
 
         -- Call render_tree without buffer option changes since we're already in activate
         if self.tree_component then
-            Tree.update_tree(self.tree_component, self.tree_data, ViewView.get_tree_config())
+            Tree.update_tree(self.tree_component, self.tree_data, self:get_tree_config())
         else
-            self.tree_component = Tree.create_tree(self.tree_data, ViewView.get_tree_config(), bufnr)
+            self.tree_component = Tree.create_tree(self.tree_data, self:get_tree_config(), bufnr)
             self:setup_tree_keybindings(bufnr)
         end
 
