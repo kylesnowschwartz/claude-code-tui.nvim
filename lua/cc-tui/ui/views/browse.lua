@@ -4,7 +4,6 @@
 ---@brief ]]
 
 local BaseView = require("cc-tui.ui.views.base")
-local Config = require("cc-tui.config")
 local NuiLine = require("nui.line")
 local ProjectDiscovery = require("cc-tui.services.project_discovery")
 local log = require("cc-tui.utils.log")
