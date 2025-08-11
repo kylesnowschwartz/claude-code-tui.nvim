@@ -112,6 +112,27 @@ The plugin parses conversation files stored at `~/.claude/projects/PROJECT_NAME/
 
 ## Important Implementation Notes
 
+### Message Model Migration
+The codebase now includes an object-oriented Message model (`lua/cc-tui/models/message.lua`) that provides:
+- **Consistent field access**: Handles both camelCase and snake_case field names
+- **Type-specific functionality**: UserMessage and AssistantMessage subclasses with specialized methods
+- **Tool linking helpers**: Methods for extracting tool uses and results
+- **Metadata extraction**: Clean API for accessing session, git, and context information
+
+#### Refactoring Opportunities
+When working with JSONL parsing or message handling, consider:
+1. **Use Message.from_json()** instead of raw JSON parsing for automatic type dispatch
+2. **Replace direct field access** with Message model methods (e.g., `msg:get_session_id()` instead of `msg.sessionId`)
+3. **Leverage type-specific methods** like `AssistantMessage:get_tool_uses()` and `UserMessage:get_tool_results()`
+4. **Migrate parser methods** to use `*_with_model` variants that return Message objects
+5. **Update tree builders** to use Message methods for content extraction
+
+The parser (`lua/cc-tui/parser/stream.lua`) provides both legacy and Message model methods:
+- Legacy: `parse_line()`, `parse_lines()`, `get_tools()`
+- Message model: `parse_line_with_model()`, `parse_lines_with_model()`, `get_tools_with_model()`
+
+Gradually migrate to Message model methods for cleaner, more maintainable code.
+
 ### Content Classification System
 The plugin includes sophisticated content classification (`lua/cc-tui/utils/content_classifier.lua`) that:
 - Detects JSON, code, error messages, and plain text
