@@ -84,8 +84,10 @@ function ViewView:load_conversation(conversation_path)
 
         log.debug("ViewView", string.format("Loaded conversation with %d messages", #self.messages))
 
-        -- If this tab is currently active, render the tree
+        -- Trigger a re-render if this tab is currently active
         if self.manager and self.manager.current_tab == "view" then
+            -- Force a refresh by triggering tab switch
+            self.manager:render()
             self:render_tree()
         end
     end)
@@ -197,54 +199,57 @@ end
 ---@param available_height number Available height for content
 ---@return NuiLine[] lines View content lines (or empty when tree is active)
 function ViewView:render(_available_height)
-    -- If we have tree data and this tab is active, use tree rendering
-    if self.tree_data and self.manager and self.manager.current_tab == "view" then
-        -- Tree handles its own rendering directly in the buffer
-        self:render_tree()
-        return {} -- Return empty lines since tree renders itself
-    end
-
-    -- Otherwise render normally with lines
-    local lines = {}
-    -- local width = self.manager:get_width()
-
-    -- Header
-    local header_line = NuiLine()
-    header_line:append("  📋 View Conversation", "CcTuiInfo")
-    if self.conversation_path then
-        local filename = vim.fn.fnamemodify(self.conversation_path, ":t:r")
-        header_line:append(string.format(" - %s", filename), "CcTuiMuted")
-    end
-    if #self.messages > 0 then
-        header_line:append(string.format(" (%d messages)", #self.messages), "CcTuiMuted")
-    end
-    table.insert(lines, header_line)
-
-    table.insert(lines, self:create_empty_line())
-
-    -- Show empty state message
-    if self.empty_message then
-        table.insert(lines, self:create_padded_line(self.empty_message, 4, "CcTuiMuted"))
-    else
-        table.insert(lines, self:create_padded_line("No conversation loaded", 4, "CcTuiMuted"))
-    end
-    table.insert(lines, self:create_padded_line("Press 'B' to browse conversations", 4, "CcTuiMuted"))
-
-    return lines
+    -- Always return empty lines - tree rendering is handled separately via on_activate()
+    -- This prevents conflicts between line-based rendering and direct tree rendering
+    return {}
 end
 
 ---Called when this tab becomes active
 function ViewView:on_activate()
-    -- Render tree if we have data
-    if self.tree_data then
-        self:render_tree()
+    local bufnr = self.manager and self.manager.popup and self.manager.popup.bufnr
+    if not bufnr then
+        return
     end
+
+    -- Make buffer modifiable for rendering
+    vim.api.nvim_buf_set_option(bufnr, "modifiable", true)
+    vim.api.nvim_buf_set_option(bufnr, "readonly", false)
+
+    if self.tree_data then
+        -- Clear buffer and render tree
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, {})
+        self:render_tree()
+    else
+        -- Render empty state
+        local lines = {}
+        table.insert(lines, "")
+        table.insert(lines, "  📋 View Conversation")
+        if self.conversation_path then
+            local filename = vim.fn.fnamemodify(self.conversation_path, ":t:r")
+            table.insert(lines, string.format("      - %s", filename))
+        end
+        table.insert(lines, "")
+        if self.empty_message then
+            table.insert(lines, "    " .. self.empty_message)
+        else
+            table.insert(lines, "    No conversation loaded")
+        end
+        table.insert(lines, "    Press 'B' to browse conversations")
+        table.insert(lines, "")
+
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+    end
+
+    -- Set buffer back to readonly
+    vim.api.nvim_buf_set_option(bufnr, "modifiable", false)
+    vim.api.nvim_buf_set_option(bufnr, "readonly", true)
 end
 
 ---Called when this tab becomes inactive
 function ViewView:on_deactivate()
-    -- Clear tree rendering
+    -- Clear tree rendering and reset state
     self:clear_tree()
+    self.tree_rendered = false
 end
 
 ---Refresh current conversation data
