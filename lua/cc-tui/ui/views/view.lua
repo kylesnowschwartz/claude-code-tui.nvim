@@ -184,6 +184,50 @@ local function get_node_display_text(node)
         end
 
         return string.format("%s %s: %s", icon, role, preview), highlight
+    elseif node.type == "text_display" then
+        -- Enhanced text display container
+        local text = node.text or "Full Response"
+        local is_expanded = node.expanded or false
+
+        if is_expanded and node.data and node.data.full_content then
+            return "📖 " .. text .. " (expanded)", "String"
+        else
+            return "📄 " .. text .. " (collapsed)", "Function"
+        end
+    elseif node.type == "hint" then
+        -- Hint nodes for user guidance
+        local text = node.text or "Hint"
+        return "💡 " .. text, "Comment"
+    elseif node.type == "text" then
+        -- Enhanced text node display with better formatting
+        local text = node.text or "Text"
+        local highlight = "Comment"
+
+        -- Special formatting for "Full text:" nodes
+        if text:match("^Full text: ") then
+            -- Extract the actual text content
+            local content = text:gsub("^Full text: ", "")
+            return "📄 " .. content, "String"
+        elseif text:match("^          ") then
+            -- Continuation lines with improved indentation
+            local content = text:gsub("^          ", "")
+            return "   ↳ " .. content, "Comment"
+        else
+            -- Regular text nodes with icon
+            return "💭 " .. text, highlight
+        end
+    elseif node.type == "tool" then
+        -- Tool nodes
+        local text = node.text or "Tool"
+        return text, "Function" -- Use function highlight for tools
+    elseif node.type == "result" then
+        -- Result nodes
+        local text = node.text or "Result"
+        if node.is_error then
+            return "❌ " .. text, "ErrorMsg"
+        else
+            return "✅ " .. text, "String"
+        end
     else
         -- Generic node
         local text = node.title or node.name or node.text or "Node"
@@ -386,6 +430,9 @@ function ViewView:toggle_selected_node()
         -- Handle result nodes with content popups (like original tree system)
         if node.data and node.data.type == "result" then
             self:toggle_result_content(node)
+        elseif node.type == "text_display" then
+            -- Handle enhanced text display expansion
+            self:toggle_text_display(node)
         elseif node.children and #node.children > 0 then
             -- Handle regular tree expansion
             local node_key = node.id or tostring(node)
@@ -453,6 +500,70 @@ function ViewView:toggle_result_content(node)
     end
 end
 
+---Toggle enhanced text display expansion/collapse
+---@param node CcTui.BaseNode Text display node
+function ViewView:toggle_text_display(node)
+    if not node.data or node.data.type ~= "text_display" then
+        log.debug("ViewView", "Node is not a text_display type")
+        return
+    end
+
+    local TreeBuilder = require("cc-tui.models.tree_builder")
+    local Node = require("cc-tui.models.node")
+
+    -- Toggle expansion state
+    local is_currently_expanded = self.expanded_nodes[node.id or tostring(node)]
+    self.expanded_nodes[node.id or tostring(node)] = not is_currently_expanded
+
+    if not is_currently_expanded then
+        -- Expand: Replace children with full text display
+        node.children = {}
+        local full_content = node.data.full_content or ""
+
+        if #full_content > 0 then
+            -- Create detailed chunks of the full text
+            local chunks = TreeBuilder.split_text_into_chunks(full_content, 100)
+            for i, chunk in ipairs(chunks) do
+                local prefix = i == 1 and "📖 Full text: " or "          "
+                local text_node = Node.create_text_node(prefix .. chunk, node.id, i)
+                table.insert(node.children, text_node)
+            end
+
+            -- Add collapse hint
+            local collapse_hint = Node.create_text_node("   [Press Space/Enter to collapse]", node.id, #chunks + 1)
+            collapse_hint.type = "hint"
+            table.insert(node.children, collapse_hint)
+        end
+
+        log.debug("ViewView", string.format("Expanded text display with %d chunks", #node.children))
+    else
+        -- Collapse: Restore original preview children
+        node.children = {}
+        local full_content = node.data.full_content or ""
+
+        if #full_content > 300 then
+            -- Show preview again
+            local preview = full_content:sub(1, 150) .. "..."
+            local preview_node = Node.create_text_node("Full text: " .. preview, node.id, 1)
+            table.insert(node.children, preview_node)
+
+            local expand_hint = Node.create_text_node("   [Press Space/Enter to expand full text]", node.id, 2)
+            expand_hint.type = "hint"
+            table.insert(node.children, expand_hint)
+        else
+            -- For shorter text, show directly
+            local chunks = TreeBuilder.split_text_into_chunks(full_content, 120)
+            for i, chunk in ipairs(chunks) do
+                local prefix = i == 1 and "Full text: " or "          "
+                local text_node = Node.create_text_node(prefix .. chunk, node.id, i)
+                table.insert(node.children, text_node)
+            end
+        end
+
+        log.debug("ViewView", "Collapsed text display")
+    end
+end
+
 ---Expand all nodes (from working commit)
 function ViewView:expand_all()
     local function expand_recursive(node)
@@ -487,7 +598,6 @@ end
 ---@return NuiLine[] lines View content lines
 function ViewView:render(available_height)
     local lines = {}
-    local width = self.manager:get_width()
 
     -- Header
     local NuiLine = require("nui.line")

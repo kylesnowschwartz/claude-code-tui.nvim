@@ -203,14 +203,10 @@ function M.create_message_node_from_message(message, create_text_node)
         -- 1. No tools present (tools are more important than text details)
         -- 2. Text is significantly longer than the preview (avoid duplication)
         if not has_tools and text_content and #text_content > 150 then
-            local clean_text = text_content:gsub("[\n\r]", " "):gsub("%s+", " ")
-
-            -- Break long text into readable chunks
-            local chunks = M.split_text_into_chunks(clean_text, 120)
-            for i, chunk in ipairs(chunks) do
-                local prefix = i == 1 and "Full text: " or "          "
-                local text_node = create_text_node(prefix .. chunk, node.id, i)
-                table.insert(node.children, text_node)
+            -- Create enhanced text node with formatting support
+            local text_display_node = M.create_enhanced_text_display(text_content, node.id, create_text_node)
+            if text_display_node then
+                table.insert(node.children, text_display_node)
             end
         end
     end
@@ -452,6 +448,56 @@ function M.process_nested_tools(parent_node, messages)
             end
         end
     end
+end
+
+---Create enhanced text display with better formatting and NUI component support
+---@param text_content string Full text content to display
+---@param parent_id string Parent node ID
+---@param create_text_node function Function to create text nodes
+---@return CcTui.BaseNode? node Enhanced text display node or nil
+function M.create_enhanced_text_display(text_content, parent_id, create_text_node)
+    -- Node module already imported at top of file
+
+    -- Clean the text content for better display
+    local clean_text = text_content:gsub("[\n\r]", " "):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+
+    -- Create a container node for the text display
+    local container_node = {
+        id = parent_id .. "-text-display",
+        type = "text_display",
+        text = "📄 Full Response",
+        children = {},
+        expanded = false,
+        data = {
+            type = "text_display",
+            full_content = clean_text,
+            is_expandable = true,
+            display_mode = "collapsed", -- Can be "collapsed" or "expanded"
+        },
+    }
+
+    -- Add smart chunking based on content
+    if #clean_text > 300 then
+        -- For longer text, create a collapsible preview
+        local preview = clean_text:sub(1, 150) .. "..."
+        local preview_node = create_text_node("Full text: " .. preview, container_node.id, 1)
+        table.insert(container_node.children, preview_node)
+
+        -- Add expansion indicator
+        local expand_hint = create_text_node("   [Press Space/Enter to expand full text]", container_node.id, 2)
+        expand_hint.type = "hint"
+        table.insert(container_node.children, expand_hint)
+    else
+        -- For shorter text, display directly with better formatting
+        local chunks = M.split_text_into_chunks(clean_text, 120)
+        for i, chunk in ipairs(chunks) do
+            local prefix = i == 1 and "Full text: " or "          "
+            local text_node = create_text_node(prefix .. chunk, container_node.id, i)
+            table.insert(container_node.children, text_node)
+        end
+    end
+
+    return container_node
 end
 
 return M
