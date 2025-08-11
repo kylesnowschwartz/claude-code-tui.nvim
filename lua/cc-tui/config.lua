@@ -2,6 +2,17 @@ local log = require("cc-tui.utils.log")
 
 local CcTui = {}
 
+---Check if we're in testing mode (SECURITY: prevents loading real user data)
+---@return boolean is_testing True if testing mode is active
+function CcTui.is_testing_mode()
+    -- Check multiple sources for testing mode in order of reliability
+    return vim.env.CC_TUI_TESTING == "1" -- Environment variable (most reliable)
+        or vim.env.TESTING == "1" -- Generic testing environment
+        or package.loaded["mini.test"] ~= nil -- MiniTest is loaded
+        or _G.CcTui_Testing == true -- Global flag set in tests
+        or (_G.CcTui and _G.CcTui.options and _G.CcTui.options.testing_mode == true) -- Config option
+end
+
 --- CcTui configuration with its default values.
 ---
 ---@type table
@@ -10,6 +21,9 @@ local CcTui = {}
 CcTui.options = {
     -- Prints useful logs about what event are triggered, and reasons actions are executed.
     debug = false,
+
+    -- SECURITY: Testing mode prevents loading real user conversation data
+    testing_mode = false,
 
     -- Content classification and display thresholds
     content = {

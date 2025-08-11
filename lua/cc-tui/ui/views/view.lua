@@ -5,6 +5,7 @@
 
 local BaseView = require("cc-tui.ui.views.base")
 -- local NuiLine = require("nui.line")
+local Config = require("cc-tui.config")
 local Tree = require("cc-tui.ui.tree")
 local log = require("cc-tui.utils.log")
 
@@ -35,8 +36,13 @@ function ViewView.new(manager)
     self.tree_component = nil
     self.tree_rendered = false
 
-    -- Try to load a default conversation
-    self:load_default_conversation()
+    -- Try to load a default conversation (but not during testing for security)
+    if not Config.is_testing_mode() then
+        self:load_default_conversation()
+    else
+        self.empty_message = "No conversations found. Start a new conversation or select one from Browse tab"
+        log.debug("ViewView", "Constructor: Skipping auto-load in testing mode")
+    end
 
     -- Tree keymaps will be set up when tree is rendered
     -- Tab switching keymaps are handled by BaseView
@@ -47,9 +53,7 @@ end
 ---Load the default conversation (most recent)
 function ViewView:load_default_conversation()
     -- SECURITY: Only load real conversations in production, not during testing
-    local is_testing = vim.env.TESTING or package.loaded["mini.test"] or _G.CcTui_Testing
-
-    if is_testing then
+    if Config.is_testing_mode() then
         -- During testing, always show empty state to avoid loading real user data
         self.empty_message = "No conversations found. Start a new conversation or select one from Browse tab"
         log.debug("ViewView", "Testing mode: Using empty state instead of loading real conversations")
@@ -73,6 +77,17 @@ end
 ---Load conversation data from a file path
 ---@param conversation_path string? Path to conversation file
 function ViewView:load_conversation(conversation_path)
+    -- SECURITY: Prevent loading real user data during testing
+    if Config.is_testing_mode() then
+        log.debug("ViewView", "Testing mode: Blocking conversation load for security")
+        self.messages = {}
+        self.tree_data = nil
+        self.conversation_path = conversation_path -- Store path but don't load data
+        self.tree_component = nil
+        self.empty_message = "Testing mode: Conversation loading blocked for security"
+        return
+    end
+
     if not conversation_path then
         -- Clear if no path provided
         self.messages = {}
