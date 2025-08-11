@@ -49,8 +49,8 @@ T["get_most_recent_conversation"] = function()
     end
 end
 
--- Test 2: Service can detect current conversation (if available)
-T["get_current_conversation"] = function()
+-- Test 2: get_current_conversation returns nil (we can't detect current)
+T["get_current_conversation_returns_nil"] = function()
     child.lua([[
         local ClaudeState = require("cc-tui.services.claude_state")
 
@@ -59,22 +59,17 @@ T["get_current_conversation"] = function()
 
         _G.test_result = {
             has_method = type(ClaudeState.get_current_conversation) == "function",
-            result_type = type(current),
-            has_path = current and current.path ~= nil
+            result = current
         }
     ]])
 
     local result = child.lua_get("_G.test_result")
     MiniTest.expect.equality(result.has_method, true, "Should have get_current_conversation method")
-    -- Current can be nil if no active conversation
-    if result.result_type ~= "nil" then
-        MiniTest.expect.equality(result.result_type, "table", "Should return table or nil")
-        MiniTest.expect.equality(result.has_path, true, "Should have path field")
-    end
+    MiniTest.expect.equality(result.result, nil, "Should return nil (can't detect current)")
 end
 
--- Test 3: Service can determine if a conversation is current
-T["is_conversation_current"] = function()
+-- Test 3: is_conversation_current always returns false (we can't detect current)
+T["is_conversation_current_returns_false"] = function()
     child.lua([[
         local ClaudeState = require("cc-tui.services.claude_state")
 
@@ -83,13 +78,13 @@ T["is_conversation_current"] = function()
 
         _G.test_result = {
             has_method = type(ClaudeState.is_conversation_current) == "function",
-            result_type = type(is_current)
+            result = is_current
         }
     ]])
 
     local result = child.lua_get("_G.test_result")
     MiniTest.expect.equality(result.has_method, true, "Should have is_conversation_current method")
-    MiniTest.expect.equality(result.result_type, "boolean", "Should return boolean")
+    MiniTest.expect.equality(result.result, false, "Should always return false (can't detect current)")
 end
 
 -- Test 4: View tab loads most recent when no conversation selected
@@ -120,11 +115,10 @@ T["view_loads_most_recent"] = function()
     -- May or may not have a conversation depending on project state
 end
 
--- Test 5: Browse marks current conversation
-T["browse_marks_current"] = function()
+-- Test 5: Browse doesn't mark current (removed feature)
+T["browse_no_current_marking"] = function()
     child.lua([[
         local BrowseView = require("cc-tui.ui.views.browse")
-        local ClaudeState = require("cc-tui.services.claude_state")
 
         -- Mock manager
         local mock_manager = {
@@ -135,18 +129,14 @@ T["browse_marks_current"] = function()
         -- Create browse instance
         local browse = BrowseView.new(mock_manager)
 
-        -- Check if browse can identify current conversation
-        local is_marked = browse:is_conversation_current(1)
-
+        -- is_conversation_current method should not exist
         _G.test_result = {
-            has_method = type(browse.is_conversation_current) == "function",
-            result_type = type(is_marked)
+            has_method = type(browse.is_conversation_current) == "function"
         }
     ]])
 
     local result = child.lua_get("_G.test_result")
-    MiniTest.expect.equality(result.has_method, true, "Should have is_conversation_current method")
-    MiniTest.expect.equality(result.result_type, "boolean", "Should return boolean")
+    MiniTest.expect.equality(result.has_method, false, "Should not have is_conversation_current method")
 end
 
 return T

@@ -44,18 +44,9 @@ function ViewView.new(manager)
     return self
 end
 
----Load the default conversation (current or most recent)
+---Load the default conversation (most recent)
 function ViewView:load_default_conversation()
-    -- First try to get the current active conversation
-    local current = ClaudeState.get_current_conversation()
-
-    if current and current.path then
-        log.debug("ViewView", "Loading current active conversation")
-        self:load_conversation(current.path)
-        return
-    end
-
-    -- Fall back to most recent conversation
+    -- Load the most recent conversation
     local cwd = vim.fn.getcwd()
     local project_name = ProjectDiscovery.get_project_name(cwd)
     local recent = ClaudeState.get_most_recent_conversation(project_name)
