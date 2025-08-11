@@ -4,6 +4,7 @@
 ---@brief ]]
 
 local BaseView = require("cc-tui.ui.views.base")
+local ClaudeState = require("cc-tui.services.claude_state")
 local NuiLine = require("nui.line")
 local ProjectDiscovery = require("cc-tui.services.project_discovery")
 local log = require("cc-tui.utils.log")
@@ -166,10 +167,18 @@ function BrowseView:create_conversation_list(available_height, width)
 
         local line = NuiLine()
 
-        -- Add selection indicator
+        -- Check if this is the current active conversation
+        local is_current = self:is_conversation_current(i)
+
+        -- Add selection indicator with current marker
         local is_selected = i == self.current_index
-        local prefix = is_selected and "► " or "  "
-        local prefix_hl = is_selected and "CcTuiInfo" or "CcTuiMuted"
+        local prefix
+        if is_current then
+            prefix = is_selected and "●► " or "●  "
+        else
+            prefix = is_selected and "► " or "  "
+        end
+        local prefix_hl = is_current and "CcTuiSuccess" or (is_selected and "CcTuiInfo" or "CcTuiMuted")
         line:append(prefix, prefix_hl)
 
         -- Add conversation number and title
@@ -294,6 +303,18 @@ function BrowseView:prev_conversation()
     if #self.conversations > 0 then
         self.current_index = math.max(self.current_index - 1, 1)
     end
+end
+
+---Check if a conversation at given index is the current active one
+---@param index number Index in conversations array
+---@return boolean is_current True if this is the current conversation
+function BrowseView:is_conversation_current(index)
+    if not self.conversations[index] then
+        return false
+    end
+
+    local conv = self.conversations[index]
+    return ClaudeState.is_conversation_current(conv.path)
 end
 
 ---Navigate to first conversation

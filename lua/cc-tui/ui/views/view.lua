@@ -8,8 +8,10 @@ local NuiLine = require("nui.line")
 local log = require("cc-tui.utils.log")
 
 -- Import existing UI components we can reuse
+local ClaudeState = require("cc-tui.services.claude_state")
 local ContentRenderer = require("cc-tui.ui.content_renderer")
 local DataLoader = require("cc-tui.core.data_loader")
+local ProjectDiscovery = require("cc-tui.services.project_discovery")
 
 ---@class CcTui.UI.ViewView:CcTui.UI.View
 ---@field messages CcTui.Message[] Current conversation messages
@@ -33,13 +35,38 @@ function ViewView.new(manager)
     self.expanded_nodes = {}
     self.conversation_path = nil
 
-    -- Don't load data initially - wait for selection from Browse
-    self.empty_message = "Select a conversation from the Browse tab to view"
+    -- Try to load a default conversation
+    self:load_default_conversation()
 
     -- Setup keymaps
     self:setup_keymaps()
 
     return self
+end
+
+---Load the default conversation (current or most recent)
+function ViewView:load_default_conversation()
+    -- First try to get the current active conversation
+    local current = ClaudeState.get_current_conversation()
+
+    if current and current.path then
+        log.debug("ViewView", "Loading current active conversation")
+        self:load_conversation(current.path)
+        return
+    end
+
+    -- Fall back to most recent conversation
+    local cwd = vim.fn.getcwd()
+    local project_name = ProjectDiscovery.get_project_name(cwd)
+    local recent = ClaudeState.get_most_recent_conversation(project_name)
+
+    if recent and recent.path then
+        log.debug("ViewView", "Loading most recent conversation")
+        self:load_conversation(recent.path)
+    else
+        -- No conversations available
+        self.empty_message = "No conversations found. Start a new conversation or select one from Browse tab"
+    end
 end
 
 ---Load conversation data from a file path
