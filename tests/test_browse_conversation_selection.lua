@@ -4,7 +4,7 @@
 --- Combines all browse selection test variants into comprehensive test suite
 ---@brief ]]
 
-local TabbedManager = require("cc-tui.ui.tabbed_manager")
+-- local TabbedManager = require("cc-tui.ui.tabbed_manager")
 local helpers = require("tests.helpers.tdd_framework")
 
 local child = helpers.child
@@ -19,8 +19,8 @@ describe("Browse Conversation Selection", function()
     describe("Current functionality (RED tests - should fail)", function()
         it("CurrentView should have load_specific_conversation method", function()
             local has_method = child.lua_get([[
-                local CurrentView = require("cc-tui.ui.views.current")
-                return type(CurrentView.load_specific_conversation) == "function"
+                local ViewView = require("cc-tui.ui.views.view")
+                return type(ViewView.load_specific_conversation) == "function"
             ]])
 
             -- RED: This should fail because method doesn't exist yet
@@ -93,7 +93,7 @@ describe("Browse Conversation Selection", function()
                     return {
                         path = selected_conv.path,
                         title = selected_conv.title,
-                        switched_to_current = _G.test_manager.current_tab == "current"
+                        switched_to_current = _G.test_manager.current_tab == "view"
                     }
                 end
                 return { error = "No conversations available" }
@@ -153,7 +153,7 @@ describe("Browse Conversation Selection", function()
                     -- Get current view state after selection
                     local current_view = _G.test_manager.views.current
                     return {
-                        current_tab_active = _G.test_manager.current_tab == "current",
+                        current_tab_active = _G.test_manager.current_tab == "view",
                         current_view_exists = current_view ~= nil,
                         -- RED: These properties should exist after loading selected conversation
                         loaded_from_selection = current_view.loaded_from_browse_selection or false,
@@ -224,10 +224,10 @@ describe("Browse Conversation Selection", function()
         it("should have a method to load specific conversation by path", function()
             -- RED: Test that Current view can load a specific conversation
             local test_code = [[
-                local CurrentView = require("cc-tui.ui.views.current")
+                local ViewView = require("cc-tui.ui.views.view")
 
                 -- This should fail - load_specific_conversation method doesn't exist
-                local has_load_method = type(CurrentView.load_specific_conversation) == "function"
+                local has_load_method = type(ViewView.load_specific_conversation) == "function"
 
                 return {
                     has_load_specific_conversation = has_load_method
@@ -249,7 +249,7 @@ describe("Browse Conversation Selection", function()
                     manager:show()
                     _G.test_manager = manager
 
-                    local current_view = manager.views.current
+                    local current_view = manager.views.view
                     if current_view then
                         local fake_path = "/fake/conversation/path.jsonl"
 
@@ -281,27 +281,27 @@ end)
 -- Convert to standard helpers pattern for consistency
 
 local Helpers = dofile("tests/helpers.lua")
-local child = Helpers.new_child_neovim()
+local test_child = Helpers.new_child_neovim()
 
 local MiniTest_T = MiniTest.new_set({
     hooks = {
         pre_case = function()
-            child.restart({ "-u", "scripts/minimal_init.lua" })
-            child.lua([[require('cc-tui').setup({})]])
+            test_child.restart({ "-u", "scripts/minimal_init.lua" })
+            test_child.lua([[require('cc-tui').setup({})]])
         end,
-        post_once = child.stop,
+        post_once = test_child.stop,
     },
 })
 
 MiniTest_T["Browse Conversation Selection Consolidated"] = MiniTest.new_set()
 
 MiniTest_T["Browse Conversation Selection Consolidated"]["GREEN: Current view has load_specific_conversation method"] = function()
-    child.lua([[
-        local CurrentView = require("cc-tui.ui.views.current")
-        _G.has_load_method = type(CurrentView.load_specific_conversation) == "function"
+    test_child.lua([[
+        local ViewView = require("cc-tui.ui.views.view")
+        _G.has_load_method = type(ViewView.load_specific_conversation) == "function"
     ]])
 
-    local has_method = child.lua_get("_G.has_load_method")
+    local has_method = test_child.lua_get("_G.has_load_method")
 
     -- GREEN: This should now pass because method was implemented
     if not has_method then

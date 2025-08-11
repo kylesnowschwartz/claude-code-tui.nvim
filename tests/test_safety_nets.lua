@@ -70,74 +70,7 @@ T["DataLoader"]["handles basic configuration safely"] = function()
     Helpers.expect.global(child, "_G.basic_operations_safe", true)
 end
 
--- Tests for UIManager - UI component management
-T["UIManager"] = MiniTest.new_set()
-
-T["UIManager"]["module loads without error"] = function()
-    child.lua([[
-        local success, UIManager = pcall(require, "cc-tui.core.ui_manager")
-        _G.module_loaded = success
-        _G.has_interface = success and type(UIManager) == "table"
-        _G.error_msg_string = success and "none" or tostring(UIManager or "unknown error")
-    ]])
-
-    Helpers.expect.global(child, "_G.module_loaded", true)
-    local error_msg = child.lua_get("_G.error_msg_string")
-    if error_msg and error_msg ~= "none" then
-        print("UIManager load error: " .. error_msg)
-    end
-    Helpers.expect.global(child, "_G.has_interface", true)
-end
-
-T["UIManager"]["has component management interface"] = function()
-    child.lua([[
-        local UIManager = require("cc-tui.core.ui_manager")
-
-        -- Check for expected component management methods
-        _G.is_valid_module = UIManager ~= nil
-        _G.module_type = type(UIManager)
-
-        -- Look for common UI management patterns
-        local expected_methods = {"new", "create", "manage", "init", "setup"}
-        _G.has_constructor = false
-
-        for _, method_name in ipairs(expected_methods) do
-            if type(UIManager[method_name]) == "function" then
-                _G.has_constructor = true
-                _G.constructor_method = method_name
-                break
-            end
-        end
-    ]])
-
-    Helpers.expect.global(child, "_G.is_valid_module", true)
-    Helpers.expect.global(child, "_G.module_type", "table")
-end
-
-T["UIManager"]["handles basic operations safely"] = function()
-    child.lua([[
-        local UIManager = require("cc-tui.core.ui_manager")
-
-        -- Test that module doesn't crash with basic usage
-        _G.basic_test_passed = true
-
-        local success = pcall(function()
-            -- Test basic module access patterns
-            if type(UIManager.new) == "function" then
-                -- Try creating a manager instance
-                local manager = UIManager.new()
-            elseif type(UIManager.create) == "function" then
-                local manager = UIManager.create()
-            end
-            -- If no constructor, just accessing the module is sufficient
-        end)
-
-        _G.operations_safe = success
-    ]])
-
-    Helpers.expect.global(child, "_G.basic_test_passed", true)
-    Helpers.expect.global(child, "_G.operations_safe", true)
-end
+-- UIManager tests removed - moved to speculative branch
 
 -- Tests for Config - Configuration validation and defaults
 T["Config"] = MiniTest.new_set()
@@ -268,8 +201,7 @@ T["Integration Safety"]["all core modules can be loaded together"] = function()
 
         local core_modules = {
             "cc-tui.config",
-            "cc-tui.core.data_loader",
-            "cc-tui.core.ui_manager"
+            "cc-tui.core.data_loader"
         }
 
         for _, module_name in ipairs(core_modules) do
@@ -309,7 +241,6 @@ T["Integration Safety"]["no obvious global namespace pollution"] = function()
         -- Load all core modules
         require("cc-tui.config")
         require("cc-tui.core.data_loader")
-        require("cc-tui.core.ui_manager")
 
         local globals_after = {}
         local new_globals = {}

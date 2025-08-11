@@ -371,8 +371,21 @@ function TabbedManager:switch_to_tab(tab_id)
         return
     end
 
+    -- Notify previous view it's being deactivated
+    local prev_view = self.views[self.current_tab]
+    if prev_view and type(prev_view.on_deactivate) == "function" then
+        prev_view:on_deactivate()
+    end
+
     -- Switch tab and refresh display
     self.current_tab = tab_id
+
+    -- Notify new view it's being activated
+    local new_view = self.views[tab_id]
+    if new_view and type(new_view.on_activate) == "function" then
+        new_view:on_activate()
+    end
+
     self:render()
     self:apply_view_keymaps()
 

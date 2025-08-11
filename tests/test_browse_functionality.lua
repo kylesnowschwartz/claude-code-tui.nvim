@@ -19,8 +19,8 @@ T["Browse Selection Fix - GREEN State"] = function()
 
     -- Test 1: CurrentView now has load_specific_conversation method
     child.lua([[
-        local CurrentView = require("cc-tui.ui.views.current")
-        _G.test_result_1 = type(CurrentView.load_specific_conversation) == "function"
+        local ViewView = require("cc-tui.ui.views.view")
+        _G.test_result_1 = type(ViewView.load_specific_conversation) == "function"
     ]])
     local has_method = child.lua_get("_G.test_result_1")
 
@@ -59,7 +59,7 @@ T["Browse Selection Fix - GREEN State"] = function()
         _G.test_result_3 = view_tab ~= nil and view_tab.conversation_path == nil
     ]])
 
-    local has_conversation_path = child.lua_get("_G.test_result_3")
+    -- local has_conversation_path = child.lua_get("_G.test_result_3")
 
     -- GREEN: This should now be true (initialized to nil, but field exists)
     -- Let's test that we can track the conversation path without loading

@@ -24,17 +24,18 @@ local T = MiniTest.new_set({
 T["browse_is_default_tab"] = function()
     -- Open CcTui
     child.cmd("CcTui")
-    
+
     -- Get the current tab from TabbedManager
-    local current_tab = child.lua_get([[
+    child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
         if manager then
-            return manager.current_tab
+            _G.current_tab = manager.current_tab
         else
-            return nil
+            _G.current_tab = nil
         end
     ]])
-    
+    local current_tab = child.lua_get("_G.current_tab")
+
     -- Browse should be the active tab, not "current"
     MiniTest.expect.equality(current_tab, "browse")
 end
@@ -42,19 +43,20 @@ end
 -- Test 2: Tab definitions should have View instead of Current
 T["view_tab_replaces_current"] = function()
     -- Get tab definitions
-    local tabs = child.lua_get([[
+    child.lua([[
         local TabbedManager = require("cc-tui.ui.tabbed_manager")
         if TabbedManager.get_tab_definitions then
-            return TabbedManager.get_tab_definitions()
+            _G.tabs = TabbedManager.get_tab_definitions()
         else
-            return {}
+            _G.tabs = {}
         end
     ]])
-    
+    local tabs = child.lua_get("_G.tabs")
+
     -- Should have a "view" tab
     local has_view_tab = false
     local has_current_tab = false
-    
+
     for _, tab in ipairs(tabs or {}) do
         if tab.id == "view" then
             has_view_tab = true
@@ -63,7 +65,7 @@ T["view_tab_replaces_current"] = function()
             has_current_tab = true
         end
     end
-    
+
     MiniTest.expect.equality(has_view_tab, true, "Should have a 'view' tab")
     MiniTest.expect.equality(has_current_tab, false, "Should not have a 'current' tab")
 end
@@ -72,12 +74,12 @@ end
 T["enter_opens_conversation_in_view"] = function()
     -- Open CcTui (starts in Browse)
     child.cmd("CcTui")
-    
+
     -- Simulate having a conversation selected in Browse
     child.lua([[
         local browse = require("cc-tui.ui.views.browse")
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
-        
+
         -- Mock a conversation selection
         if manager and manager.views and manager.views.browse then
             local browse_view = manager.views.browse
@@ -85,33 +87,34 @@ T["enter_opens_conversation_in_view"] = function()
             browse_view.selected_conversation_path = "/test/conversation.jsonl"
         end
     ]])
-    
+
     -- Simulate pressing Enter
     child.type_keys("<CR>")
-    
+
     -- Check that we switched to View tab
-    local result = child.lua_get([[
+    child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
-        if not manager then 
-            return { tab = nil, path = nil } 
+        if not manager then
+            _G.result = { tab = nil, path = nil }
+        else
+            local current_tab = manager.current_tab
+            local view_tab = nil
+            if manager.views then
+                view_tab = manager.views.view
+            end
+            local conversation_path = nil
+            if view_tab then
+                conversation_path = view_tab.conversation_path
+            end
+
+            _G.result = {
+                tab = current_tab,
+                path = conversation_path
+            }
         end
-        
-        local current_tab = manager.current_tab
-        local view_tab = nil
-        if manager.views then
-            view_tab = manager.views.view
-        end
-        local conversation_path = nil
-        if view_tab then
-            conversation_path = view_tab.conversation_path
-        end
-        
-        return {
-            tab = current_tab,
-            path = conversation_path
-        }
     ]])
-    
+    local result = child.lua_get("_G.result")
+
     MiniTest.expect.equality(result.tab, "view", "Should switch to view tab")
     MiniTest.expect.equality(result.path, "/test/conversation.jsonl", "View should show selected conversation")
 end
@@ -120,7 +123,7 @@ end
 T["view_tab_shows_conversation_tree"] = function()
     -- Open CcTui
     child.cmd("CcTui")
-    
+
     -- Load a conversation into View tab
     child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
@@ -129,28 +132,23 @@ T["view_tab_shows_conversation_tree"] = function()
             manager:open_conversation_in_view("/test/conversation.jsonl")
         end
     ]])
-    
+
     -- Check that View tab has tree data
-    local has_tree = child.lua_get([[
+    child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
         if not manager then
-            return false
-        end
-        if not manager.views then
-            return false
-        end
-        if not manager.views.view then
-            return false
-        end
-        
-        local view = manager.views.view
-        if view.tree_data then
-            return true
+            _G.has_tree = false
+        elseif not manager.views then
+            _G.has_tree = false
+        elseif not manager.views.view then
+            _G.has_tree = false
         else
-            return false
+            local view = manager.views.view
+            _G.has_tree = view.tree_data ~= nil
         end
     ]])
-    
+    local has_tree = child.lua_get("_G.has_tree")
+
     MiniTest.expect.equality(has_tree, true, "View tab should have tree data")
 end
 
@@ -158,19 +156,20 @@ end
 T["view_tab_keybinding"] = function()
     -- Open CcTui
     child.cmd("CcTui")
-    
+
     -- Press 'V' to switch to View tab
     child.type_keys("V")
-    
-    local current_tab = child.lua_get([[
+
+    child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
         if manager then
-            return manager.current_tab
+            _G.current_tab = manager.current_tab
         else
-            return nil
+            _G.current_tab = nil
         end
     ]])
-    
+    local current_tab = child.lua_get("_G.current_tab")
+
     MiniTest.expect.equality(current_tab, "view", "V key should switch to View tab")
 end
 
@@ -178,28 +177,23 @@ end
 T["browse_shows_conversation_list"] = function()
     -- Open CcTui (starts in Browse)
     child.cmd("CcTui")
-    
+
     -- Check that Browse view has conversation list
-    local has_conversations = child.lua_get([[
+    child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
         if not manager then
-            return false
-        end
-        if not manager.views then
-            return false
-        end
-        if not manager.views.browse then
-            return false
-        end
-        
-        local browse = manager.views.browse
-        if browse.conversations and type(browse.conversations) == "table" then
-            return true
+            _G.has_conversations = false
+        elseif not manager.views then
+            _G.has_conversations = false
+        elseif not manager.views.browse then
+            _G.has_conversations = false
         else
-            return false
+            local browse = manager.views.browse
+            _G.has_conversations = browse.conversations and type(browse.conversations) == "table"
         end
     ]])
-    
+    local has_conversations = child.lua_get("_G.has_conversations")
+
     MiniTest.expect.equality(has_conversations, true, "Browse should have conversation list")
 end
 
@@ -207,30 +201,29 @@ end
 T["view_tab_empty_state"] = function()
     -- Open CcTui
     child.cmd("CcTui")
-    
+
     -- Switch to View tab without selecting a conversation
     child.type_keys("V")
-    
+
     -- Check View tab state
-    local view_state = child.lua_get([[
+    child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
         if not manager then
-            return { has_content = false, has_message = false }
+            _G.view_state = { has_content = false, has_message = false }
+        elseif not manager.views then
+            _G.view_state = { has_content = false, has_message = false }
+        elseif not manager.views.view then
+            _G.view_state = { has_content = false, has_message = false }
+        else
+            local view = manager.views.view
+            _G.view_state = {
+                has_content = (view.tree_data ~= nil),
+                has_message = (view.empty_message ~= nil)
+            }
         end
-        if not manager.views then
-            return { has_content = false, has_message = false }
-        end
-        if not manager.views.view then
-            return { has_content = false, has_message = false }
-        end
-        
-        local view = manager.views.view
-        return {
-            has_content = (view.tree_data ~= nil),
-            has_message = (view.empty_message ~= nil)
-        }
     ]])
-    
+    local view_state = child.lua_get("_G.view_state")
+
     MiniTest.expect.equality(view_state.has_content, false, "View should have no content when no conversation selected")
     MiniTest.expect.equality(view_state.has_message, true, "View should show empty state message")
 end
@@ -239,7 +232,7 @@ end
 T["browse_selection_updates_view"] = function()
     -- Open CcTui
     child.cmd("CcTui")
-    
+
     -- Select first conversation
     child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
@@ -247,10 +240,10 @@ T["browse_selection_updates_view"] = function()
             manager:open_conversation_in_view("/test/conversation1.jsonl")
         end
     ]])
-    
+
     -- Go back to Browse
     child.type_keys("B")
-    
+
     -- Select different conversation
     child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
@@ -258,24 +251,27 @@ T["browse_selection_updates_view"] = function()
             manager:open_conversation_in_view("/test/conversation2.jsonl")
         end
     ]])
-    
+
     -- Check View has updated
-    local conversation_path = child.lua_get([[
+    child.lua([[
         local manager = require("cc-tui.ui.tabbed_manager").get_instance()
         if not manager then
-            return nil
+            _G.conversation_path = nil
+        elseif not manager.views then
+            _G.conversation_path = nil
+        elseif not manager.views.view then
+            _G.conversation_path = nil
+        else
+            _G.conversation_path = manager.views.view.conversation_path
         end
-        if not manager.views then
-            return nil
-        end
-        if not manager.views.view then
-            return nil
-        end
-        
-        return manager.views.view.conversation_path
     ]])
-    
-    MiniTest.expect.equality(conversation_path, "/test/conversation2.jsonl", "View should show newly selected conversation")
+    local conversation_path = child.lua_get("_G.conversation_path")
+
+    MiniTest.expect.equality(
+        conversation_path,
+        "/test/conversation2.jsonl",
+        "View should show newly selected conversation"
+    )
 end
 
 return T

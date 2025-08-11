@@ -107,11 +107,11 @@ T["TabbedManager Integration"]["GREEN: Browse to Current workflow transfers conv
             browse_view:select_current()
 
             -- Verify tab switched and conversation path is set
-            _G.switched_to_current = manager.current_tab == "current"
+            _G.switched_to_current = manager.current_tab == "view"
             _G.conversation_path_set = manager.current_conversation_path == selected_conv.path
 
             -- Verify Current view received the conversation
-            local current_view = manager.views.current
+            local current_view = manager.views.view
             _G.current_view_has_path = current_view and current_view.conversation_path == selected_conv.path
             _G.test_passed = true
         else
@@ -146,7 +146,7 @@ T["TabbedManager Integration"]["GREEN: Browse to Current workflow transfers conv
     Helpers.expect.equality(initial_tab, "browse")
 
     -- GREEN: Integration should work correctly
-    Helpers.expect.truthy(switched_to_current, "Browse selection should switch to Current tab")
+    Helpers.expect.truthy(switched_to_current, "Browse selection should switch to View tab")
     Helpers.expect.truthy(conversation_path_set, "TabbedManager should track conversation path")
     Helpers.expect.truthy(current_view_has_path, "Current view should receive selected conversation path")
 
@@ -219,11 +219,11 @@ T["Data Loading Integration"]["GREEN: Loads large conversation files efficiently
         _G.file_size = %d
 
         -- Test integration with TabbedManager
-        local manager = TabbedManager.new({ default_tab = "current" })
+        local manager = TabbedManager.new({ default_tab = "view" })
         manager:show()
 
-        -- Test integration with TabbedManager - Current view should load specific conversations
-        local current_view = manager.views.current
+        -- Test integration with TabbedManager - View tab should load specific conversations
+        local current_view = manager.views.view
         if current_view and current_view.load_specific_conversation then
             local integration_start = vim.loop.hrtime()
             local success = pcall(current_view.load_specific_conversation, current_view, "%s")
@@ -260,8 +260,8 @@ T["Data Loading Integration"]["GREEN: Loads large conversation files efficiently
     end
 
     -- GREEN: Integration functionality should work now
-    Helpers.expect.truthy(not integration_missing, "Current view should have load_specific_conversation method")
-    Helpers.expect.truthy(integration_success, "Current view should successfully load specific conversation")
+    Helpers.expect.truthy(not integration_missing, "View tab should have load_specific_conversation method")
+    Helpers.expect.truthy(integration_success, "View tab should successfully load specific conversation")
 
     -- Performance validation for UI integration
     if not integration_time_ms or integration_time_ms > 10000 then -- 10 second threshold for UI integration

@@ -24,8 +24,8 @@ T["Keybinding Bugs"]["Tab key should toggle tree nodes"] = function()
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
 
-        -- Enable plugin with test data (default tab is current)
-        Main.enable("test", "current")
+        -- Enable plugin with test data (default tab is browse)
+        Main.enable("test", "browse")
 
         -- Wait for tabbed interface to be created
         vim.wait(100)
@@ -58,7 +58,7 @@ T["Keybinding Bugs"]["Tab key should toggle tree nodes"] = function()
     ]])
 
     Helpers.expect.global(child, "_G.plugin_enabled", true)
-    Helpers.expect.global(child, "_G.current_tab", "current")
+    Helpers.expect.global(child, "_G.current_tab", "browse")
     Helpers.expect.global(child, "_G.tab_is_mapped", true)
     Helpers.expect.global(child, "_G.tab_handler_exists", true)
 end
@@ -110,8 +110,8 @@ T["Keybinding Bugs"]["Tab actually toggles tree nodes"] = function()
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
 
-        -- Enable plugin with test data (start on current tab)
-        Main.enable("test", "current")
+        -- Enable plugin with test data (start on browse tab)
+        Main.enable("test", "browse")
 
         -- Wait for tabbed interface to be created
         vim.wait(100)
@@ -124,7 +124,7 @@ T["Keybinding Bugs"]["Tab actually toggles tree nodes"] = function()
             return
         end
 
-        -- Verify we're on current tab (with tree functionality)
+        -- Verify we're on browse tab (with tree functionality)
         _G.current_tab = state.tabbed_manager.current_tab
 
         -- Simulate Tab key press to toggle tree node
@@ -145,11 +145,11 @@ T["Keybinding Bugs"]["Tab actually toggles tree nodes"] = function()
         -- Tab should not change tabs (should stay on current)
         local final_tab = state.tabbed_manager.current_tab
         _G.final_tab = final_tab
-        _G.tab_stayed_same = state.tabbed_manager.current_tab == "current"
+        _G.tab_stayed_same = state.tabbed_manager.current_tab == "browse"
     ]])
 
     Helpers.expect.global(child, "_G.has_tabbed_manager", true)
-    Helpers.expect.global(child, "_G.current_tab", "current")
+    Helpers.expect.global(child, "_G.current_tab", "browse")
     Helpers.expect.global(child, "_G.tab_handler_called", true)
     -- Tab should not change tabs, but toggle tree nodes
     Helpers.expect.global(child, "_G.tab_stayed_same", true)
@@ -160,8 +160,8 @@ T["Keybinding Bugs"]["Question mark actually switches to help tab"] = function()
         require('cc-tui').setup()
         local Main = require('cc-tui.main')
 
-        -- Enable plugin with test data (start on current tab)
-        Main.enable("test", "current")
+        -- Enable plugin with test data (start on browse tab)
+        Main.enable("test", "browse")
 
         -- Wait for tabbed interface to be created
         vim.wait(100)
